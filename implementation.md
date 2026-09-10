@@ -17,7 +17,7 @@ The first supported model families will be:
 
 1. Google Gemma 4, beginning with a small onboarding model and scaling through the 31B dense model.
 2. NVIDIA Nemotron, beginning with Nemotron 3.5 Lightning and testing larger Nemotron 3 variants where the runtime and memory footprint permit.
-3. Meta Llama, using the current downloadable Llama 4 Scout model as the practical target and treating Llama 4 Maverick as an experimental multi-node candidate.
+3. Meta Llama, using the current downloadable Llama 4 Scout model as the practical target. Llama 4 Maverick is tracked as an explicit non-fit because it exceeds this project's two-GPU ceiling.
 4. A small, curated expansion set of other popular open-weight models, initially Mistral Small 4. Larger Mistral and Qwen candidates will be considered only after the core paths are reliable.
 
 “Host” means run an inference server inside a Slurm allocation and connect to it from an authorized client. It does **not** mean a permanent public internet service. Pinnacles jobs have wall-time limits, shared queues, and cluster networking rules, so the tutorial will teach an ephemeral, authenticated workflow.
@@ -37,7 +37,8 @@ The project is complete for its first release when a student can:
 7. Launch tested Gemma, Nemotron, and Llama configurations by changing a model profile rather than rewriting the Slurm script.
 8. Understand why a model fits or does not fit, including weights, quantization, KV cache, runtime overhead, and requested context length.
 9. Reproduce recorded smoke-test and benchmark results on A100, L40S, and H200 hardware that their account can access.
-10. Diagnose the most common failures from Slurm state, logs, CUDA/runtime errors, out-of-memory errors, access-gated model errors, and disk quota errors.
+10. Connect OpenCode to the allocated server through a loopback OpenAI-compatible endpoint and complete a controlled coding/tool-call exercise.
+11. Diagnose the most common failures from Slurm state, logs, CUDA/runtime errors, out-of-memory errors, access-gated model errors, and disk quota errors.
 
 Release acceptance additionally requires:
 
@@ -45,6 +46,7 @@ Release acceptance additionally requires:
 - Every core command has been run by a clean test account or a Challenge student account, not only by a maintainer's established environment.
 - Every supported model row carries a status of `verified`, `partially verified`, `experimental`, or `not supported` and records the date, checkpoint revision, GPU, GPU count, context length, runtime version, and result.
 - The documented default requests the smallest resource known to work.
+- No profile or example requests more than one node or two GPUs total.
 - No example binds a model server to a public interface by default.
 - No secret, model weight, cache, generated log, or environment directory is tracked by Git.
 
@@ -59,6 +61,7 @@ The first release will not:
 - expose an unauthenticated endpoint to the public internet;
 - bypass Slurm, account associations, queue limits, or CIRT policy;
 - depend on private partitions, purchased condo nodes, or MERCED billing;
+- use multi-node inference or request more than two GPUs total;
 - download every theoretically compatible checkpoint;
 - claim the advertised maximum context window is usable at useful concurrency;
 - treat a successful model load as proof of useful inference speed or output correctness;
@@ -75,12 +78,14 @@ Fine-tuning, RAG, multi-agent orchestration, and web UIs are follow-on modules a
 
 The current campus documentation describes Pinnacles as Rocky Linux 9.8 with Slurm. It lists the following GPU resources:
 
-| Public partition | Nodes | GPUs per node | VRAM per GPU | Aggregate VRAM per node | Published maximum |
+| Public partition | Nodes | GPUs per node | VRAM per GPU | Aggregate VRAM per node | Published scheduler maximum |
 |---|---:|---:|---:|---:|---|
-| `gpu` | 8 | 2 x NVIDIA A100 PCIe | 40 GB | 80 GB | 2 nodes, 3 days |
-| `cenvalarc.gpu` | 8 | 2 x NVIDIA L40S | 48 GB | 96 GB | 2 nodes, 3 days |
-| `cenvalarc.gpu` | 4 | 2 x NVIDIA H200 NVL | 141 GB | 282 GB | 2 nodes, 3 days |
-| `test` | shared access across node types | varies | varies | varies | 2 nodes, 1 hour, one submitted job |
+| `gpu` | 8 | 2 x NVIDIA A100 PCIe | 40 GB | 80 GB | 2 nodes, 3 days, 4 submitted jobs |
+| `cenvalarc.gpu` | 8 | 2 x NVIDIA L40S | 48 GB | 96 GB | 2 nodes, 3 days, 4 submitted jobs |
+| `cenvalarc.gpu` | 4 | 2 x NVIDIA H200 NVL | 141 GB | 282 GB | 2 nodes, 3 days, 4 submitted jobs |
+| `test` | shared access across node types | varies | varies | varies | 2 nodes, 1 hour, 1 submitted job |
+
+Those are scheduler maxima, not tutorial defaults. This project imposes a stricter invariant: every supplied profile uses one node and at most two GPUs total. The starter path requests one GPU for 30 minutes on `test`; normal validation jobs target at most four hours on a long-running GPU partition. A longer request must be justified by measured startup/run time and remain within the live partition limit.
 
 Published default storage allocations are 70 GB soft/75 GB hard for `HOME`, 500/512 GB for `data`, and 500/512 GB for `scratch`. Scratch is purgeable and is not a backup. These limits matter because a single frontier-scale quantized checkpoint can consume most of one storage allocation.
 
@@ -103,11 +108,12 @@ Sources:
 
 ### 4.2 Live, read-only Slurm probe
 
-On 2026-09-10, a read-only probe from `rclogin02` confirmed:
+On 2026-09-10, a read-only probe from a Pinnacles login node confirmed:
 
 - `gpu`: 8 two-GPU A100 nodes, 3-day wall time, maximum 2 nodes;
 - `cenvalarc.gpu`: 8 two-GPU L40S nodes and 4 two-GPU H200 NVL nodes, 3-day wall time, maximum 2 nodes;
 - `test`: visibility of A100, L40S, H200 NVL and other condo GPUs, with a 1-hour limit;
+- the `test`, `gpu`, and `cenvalarc.gpu` QoS configurations permit at most 1, 4, and 4 submitted jobs per user respectively;
 - current modules include Anaconda, CUDA-related software, and `singularityce/4.1.0`; and
 - the login nodes do not contain a GPU, as expected.
 
@@ -147,7 +153,7 @@ This profile receives a bounded workshop path:
 - request one GPU for 15–45 minutes;
 - run a local smoke test rather than an unattended service;
 - keep startup time low by avoiding a model download during the allocation; and
-- do not advertise large-model or multi-node examples as runnable.
+- do not advertise large-model or two-GPU examples as runnable until their access is verified.
 
 If the Challenge requires longer hosting for Profile B, the resolution is administrative: the Challenge organizers and CIRT must agree on the project association, reservation, or access policy. The code must not attempt a technical workaround.
 
@@ -156,6 +162,10 @@ If the Challenge requires longer hosting for Profile B, the resolution is admini
 ## 6. Candidate model matrix
 
 Checkpoint size is only a lower bound on required VRAM. A server also needs memory for CUDA kernels, activations, quantization metadata, the KV cache, multimodal encoders, and runtime workspaces. MoE models retain all experts' weights in memory even though only a subset is active for each token.
+
+### Resource ceiling
+
+The repository's hard ceiling is **one node and two GPUs total**. On the public hardware this means, before runtime overhead, at most 80 GB on two A100s, 96 GB on two L40S GPUs, or 282 GB on two H200 NVL GPUs. Profiles must request one GPU unless measurements prove that two are required. Scheduler support for two nodes does not authorize the project to use four GPUs, and the implementation will reject such a profile before submission.
 
 The initial planning matrix is:
 
@@ -168,10 +178,10 @@ The initial planning matrix is:
 | 1 | Mistral Small 4 119B NVFP4 | 119B total/6.5B active; repository about 70.8 GB | 1 x H200 or 2 x A100/L40S, subject to runtime validation | Expansion candidate |
 | 2 | NVIDIA Nemotron 3 Super 120B-A12B NVFP4 | 120B total/12B active; repository about 80.4 GB; vendor minimum names B200 or DGX Spark | 1 x H200 has capacity on paper; 2-GPU fallback may be needed | Experimental until Hopper runtime is proven |
 | 2 | Llama 4 Scout 17B-16E Instruct | 109B total/17B active; BF16; Meta says on-the-fly INT4 can fit one H100 | 1 x H200 INT4 or 2 x H200 BF16; possibly 2 x A100/L40S INT4 | Core Llama target, gated and unverified here |
-| 3 | Llama 4 Maverick 17B-128E Instruct FP8 | about 400B total/17B active; FP8 weight shards are roughly 430+ GB | 4 x H200 across 2 nodes has aggregate capacity, but topology and runtime are unverified | Stretch experiment, not a promised tutorial path |
-| 3 | NVIDIA Nemotron 3 Ultra 550B-A55B NVFP4 | repository about 352 GB; official minimum is 4 x B200, and model card examples target newer interconnects | aggregate capacity exists on 4 x H200 across 2 nodes, but this is below vendor recommendation | Not supported unless an explicit experiment succeeds |
-| 3 | Mistral Large 3 675B NVFP4 | 675B total/41B active; repository about 403 GB; official launch recipe uses tensor parallel size 8 | aggregate capacity exists on 4 x H200, but the recommended GPU count and single-node topology are unavailable | Not supported unless a 4-GPU recipe is validated |
-| 3 | Qwen 3.5 397B-A17B official weights | official repository about 807 GB | does not fit in 4 x H200 as published; third-party quantizations require a separate provenance review | Backlog only |
+| 3 | Llama 4 Maverick 17B-128E Instruct FP8 | about 400B total/17B active; FP8 weight shards are roughly 430+ GB | exceeds the 282 GB two-H200 ceiling before runtime overhead | Not supported under the project cap |
+| 3 | NVIDIA Nemotron 3 Ultra 550B-A55B NVFP4 | repository about 352 GB; official minimum is 4 x B200 | exceeds the 282 GB two-H200 ceiling and vendor minimum | Not supported under the project cap |
+| 3 | Mistral Large 3 675B NVFP4 | 675B total/41B active; repository about 403 GB; official recipe uses tensor parallel size 8 | exceeds both the 282 GB ceiling and two-GPU count | Not supported under the project cap |
+| 3 | Qwen 3.5 397B-A17B official weights | official repository about 807 GB | exceeds the 282 GB two-H200 ceiling; third-party quantizations require a separate provenance review | Backlog/non-fit reference only |
 
 Relevant primary model sources:
 
@@ -184,7 +194,7 @@ Relevant primary model sources:
 - [Nemotron 3.5 Lightning official model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4)
 - [Nemotron 3 Super official model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4)
 - [Nemotron 3 Ultra official model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4)
-- [Mistral Small 4 official model card](https://huggingface.co/mistralai/Mistral-Small-4-119B-2603)
+- [Mistral Small 4 NVFP4 official model card](https://huggingface.co/mistralai/Mistral-Small-4-119B-2603-NVFP4)
 - [Mistral Large 3 NVFP4 official model card](https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512-NVFP4)
 - [Qwen 3.5 397B official model card](https://huggingface.co/Qwen/Qwen3.5-397B-A17B)
 
@@ -202,6 +212,44 @@ A model becomes a core tutorial model only if all of the following are true:
 8. The exact setup is reproducible from a clean account.
 
 The largest model that merely satisfies aggregate weight arithmetic will be called “theoretical.” The largest model that passes the above gate will be called “largest verified.”
+
+Within the two-GPU cap, the first capacity-frontier candidates are Nemotron 3 Super 120B-A12B NVFP4, Mistral Small 4 119B NVFP4, and Llama 4 Scout 109B. Published parameter count does not decide the winner: the README will name a largest verified model only after the exact checkpoint, runtime, precision, context, and tool-calling path pass on Pinnacles.
+
+### Serving-runtime and OpenCode strategy
+
+All supported servers must present the OpenAI-compatible APIs needed by OpenCode, but they need not share one model format. The project will test runtimes in this order:
+
+| Runtime | Planned role | Why evaluate it | Promotion gate |
+|---|---|---|---|
+| Hugging Face Transformers | Reference loader and newest-architecture diagnostic | Closest path to developer model cards; useful when an optimized server has not caught up | Load/generate only; not the final OpenCode server unless wrapped by a reviewed API layer |
+| vLLM | Primary high-throughput server | OpenAI-compatible API, continuous batching, two-GPU tensor parallelism, broad architecture support, and model-specific reasoning/tool parsers | Exact model and parser must pass chat, streaming, structured output, tool-call, cancellation, and memory tests |
+| SGLang | Performance/compatibility alternative | OpenAI-compatible API, prefix caching, structured outputs, tool parsers, and active support for recent MoE/hybrid models | Promote per model only when it is measurably more compatible or useful than vLLM on the same allocation |
+| llama.cpp | Quantized GGUF path | Lightweight user-space build, CUDA offload, broad low-bit formats, and an OpenAI-compatible `llama-server` | Require a reviewed GGUF source, reproducible build commit, full GPU offload where feasible, and tool-call compatibility |
+| Ollama | Optional beginner convenience layer | Simple model lifecycle and documented OpenAI compatibility; OpenCode supports it directly | Must install without `sudo`, keep all data under the selected quota-aware path, honor `CUDA_VISIBLE_DEVICES`, terminate with the Slurm job, and expose the required context/tool behavior |
+
+Hugging Face Text Generation Inference will not receive a core path because its official documentation says it is in maintenance mode and recommends vLLM, SGLang, or llama.cpp going forward. TensorRT-LLM/NVIDIA NIM may be investigated only if a model requires them and a license-compatible SingularityCE workflow can run without privileged Docker. No backend is called “supported” merely because its upstream model list contains the architecture.
+
+Primary runtime references:
+
+- [vLLM OpenAI-compatible server](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/)
+- [vLLM tool calling](https://docs.vllm.ai/en/latest/features/tool_calling/)
+- [SGLang documentation](https://docs.sglang.io/)
+- [llama.cpp server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server)
+- [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility)
+- [OpenCode providers and local models](https://opencode.ai/docs/providers/)
+- [Hugging Face TGI maintenance notice](https://huggingface.co/docs/text-generation-inference/main/en/index)
+
+OpenCode is the acceptance client, not an afterthought. Each promoted model/runtime pair must:
+
+1. expose a stable model ID through `GET /v1/models`;
+2. work through an OpenCode custom provider using `@ai-sdk/openai-compatible` and a loopback `baseURL`;
+3. report honest context/output limits in `opencode.json`;
+4. stream a normal coding response;
+5. serialize at least one valid tool call and accept the corresponding tool result;
+6. survive a bounded multi-turn edit/test task in a disposable Git fixture; and
+7. keep command execution on the OpenCode client side, subject to OpenCode permissions—the model server never receives shell credentials or direct filesystem access.
+
+Tool calling is a three-part compatibility contract among model chat template, serving-runtime parser, and OpenCode's request/response format. All three are pinned and tested together. A model that chats successfully but emits malformed or ignored tool calls is not an agentic-coding success.
 
 ---
 
@@ -232,11 +280,11 @@ The intended repository layout is:
 │   │   └── download_model.py         # Revision-pinned, resumable download
 │   ├── serve/
 │   │   ├── serve.sbatch             # Generic one-node server
-│   │   ├── serve_multinode.sbatch   # Experimental, isolated from core path
 │   │   └── launch.py                # Validates a profile and builds argv safely
 │   ├── client/
 │   │   ├── smoke_test.py
-│   │   └── benchmark.py
+│   │   ├── benchmark.py
+│   │   └── opencode_smoke.sh         # Disposable coding/tool-call acceptance test
 │   └── lib/
 │       └── common.sh
 ├── tests/
@@ -270,12 +318,13 @@ Generated environments, downloaded weights, raw logs, tokens, and Slurm output m
 id: gemma-4-e2b-it
 model_id: google/gemma-4-E2B-it
 revision: <immutable commit SHA>
-runtime: transformers
+runtime: vllm
 task: any-to-any
-gated: true
-license_url: https://ai.google.dev/gemma/terms
-partition: cenvalarc.gpu
-gres: gpu:l40s:1
+gated: false
+license: apache-2.0
+license_url: https://ai.google.dev/gemma/docs/core/model_card_4
+partition: test
+gres: gpu:1
 nodes: 1
 gpus_per_node: 1
 cpus_per_task: 8
@@ -292,20 +341,22 @@ Validation rules:
 
 - `revision` must be an immutable model repository commit, not `main`.
 - `partition` must be in an allowlist: `test`, `gpu`, or `cenvalarc.gpu`.
-- `nodes` must be 1 for core profiles and at most 2 for experiments.
+- `nodes` must be exactly 1 for every profile.
 - `gpus_per_node` must match the live GRES shape and be 1 or 2 for public nodes.
+- `nodes * gpus_per_node` must be at most 2; this is enforced even if a scheduler partition advertises a larger node limit.
 - wall time must not exceed the selected partition's live maximum.
 - `gpu_memory_utilization` must be in `(0, 0.90]` for examples.
 - `max_model_len` must be explicit; no profile inherits a model's advertised maximum.
 - `extra_args` must be an argv list. Shell fragments and command substitution are rejected.
 - a gated model must link to its terms and document the manual access step.
 - unknown keys and unknown model IDs fail closed with an actionable error.
+- a runtime/model combination must be present in a tested compatibility allowlist; unsupported combinations fail before submission.
 
 ### 8.2 Launcher contract
 
 Input: one validated model profile plus optional safe overrides for wall time, port, and output directory.
 
-Output: a deterministic argument vector and a Slurm submission command. The launcher must print the selected partition, GRES, checkpoint revision, storage path, context limit, and log path before submission.
+Output: a deterministic argument vector and a Slurm submission command. The launcher must print the selected partition, GRES, total GPU count, checkpoint revision, runtime, storage path, context limit, wall time, and log path before submission.
 
 Failures:
 
@@ -313,6 +364,7 @@ Failures:
 - inaccessible model or absent token: exit 3, no retry loop;
 - insufficient storage: exit 4 before download;
 - unsupported GPU/runtime combination: exit 5 before server launch;
+- request above the one-node/two-GPU project cap: exit 5 before `sbatch`;
 - server readiness timeout: exit 6 after cleaning up child processes;
 - smoke-test failure: exit 7 and preserve sanitized diagnostics.
 
@@ -328,6 +380,7 @@ Each validation record will include:
 - partition, node count, GPU model/count, driver and CUDA versions;
 - runtime and dependency versions;
 - precision/quantization, context length, concurrency, prompt/input modality;
+- runtime-specific chat template, reasoning parser, and tool-call parser;
 - checkpoint bytes on disk;
 - startup time, peak GPU memory, prompt tokens/second, output tokens/second;
 - smoke-test result and benchmark result;
@@ -353,6 +406,8 @@ Tasks:
    id
    sacctmgr -n -P show assoc user="$USER" \
      format=Cluster,Account,User,Partition,QOS,GrpTRES,MaxTRES,MaxJobs,MaxSubmit
+   sacctmgr -n -P show qos test,gpu,cenvalarc.gpu \
+     format=Name,MaxWall,MaxJobsPU,MaxSubmitPU,MaxTRESPJ,MaxTRESPerUser
    sinfo -a -o '%P|%a|%l|%D|%G|%f'
    scontrol show partition test
    scontrol show partition gpu
@@ -421,6 +476,7 @@ Tasks:
 5. Do not make Docker commands runnable in the Pinnacles tutorial. Vendor Docker examples must be translated and tested or clearly marked “not for Pinnacles.”
 6. Make setup idempotent: a second run verifies or updates the pinned environment instead of corrupting it.
 7. Produce `python -m pip freeze`, PyTorch/CUDA visibility, and runtime version diagnostics from a GPU allocation.
+8. Record the NVIDIA driver version and test one environment across A100 (SM80), L40S (SM89), and H200 (SM90); do not assume a wheel or compiled CUDA extension built on one architecture works on the others.
 
 **Exit criteria:** A clean account can create the environment twice, import the runtime on each allowed GPU type, and run a tiny CUDA operation inside Slurm.
 
@@ -430,7 +486,7 @@ Tasks:
 
 Tasks:
 
-1. Document Hugging Face account creation and the manual license/access workflow for gated Gemma and Llama repositories.
+1. Document Hugging Face account creation, each model's license, and the manual access workflow where a repository is gated. Gemma 4 is currently Apache 2.0 and ungated; Llama 4 requires its own license/access flow.
 2. Use `huggingface_hub`/`hf download` with:
    - an immutable revision;
    - a local directory under the selected data/cache path;
@@ -452,7 +508,7 @@ Tasks:
 Tasks:
 
 1. Start with direct Transformers inference if Gemma 4 support in the selected serving runtime is not yet stable.
-2. Add an OpenAI-compatible server using a tested vLLM release or another maintained backend only after its Gemma 4 recipe passes.
+2. Add an OpenAI-compatible server using a tested vLLM release; use SGLang only if its Gemma 4 support proves better in the same smoke test.
 3. Use one GPU, an 8K or smaller initial context, one concurrent request, and a 30-minute allocation.
 4. Bind to `127.0.0.1` by default and write a readiness file containing node, port, model ID, revision, and job ID but no token.
 5. Poll a health endpoint with a bounded timeout; do not use a fixed long sleep.
@@ -464,6 +520,7 @@ Tasks:
    - one image input if the selected backend supports the modality.
 7. Capture startup time, peak memory, throughput, server exit, and Slurm state.
 8. Test `scancel` and wall-time termination to verify child-process cleanup.
+9. Connect OpenCode through the loopback endpoint and verify one non-destructive tool-call round trip against a disposable fixture.
 
 **Exit criteria:** A clean-account student follows the draft README verbatim and receives a valid response with no login-node computation.
 
@@ -480,11 +537,13 @@ Tasks:
    - L40S (`cenvalarc.gpu`, `gpu:l40s:N`); and
    - H200 (`cenvalarc.gpu`, `gpu:nvidia_h200_nvl:N`).
 4. Confirm live GRES spellings during each run; fail with a useful message if the cluster changes them.
-5. Set cache, temporary, compilation, and model output directories to explicit per-user locations. Never rely on login-node `/tmp`.
-6. Add traps for `TERM`, `INT`, and normal exit. Stop the server, wait for children, and preserve the final sanitized metrics.
-7. Add a readiness timeout and bounded retry behavior only for idempotent health checks.
-8. Keep the default API loopback-only. If SSH forwarding is approved, document a tunnel through `login.rc.ucmerced.edu`; otherwise keep the client in the same allocation or use approved Open OnDemand access.
-9. Require an API token if a server is bound beyond loopback, even on the cluster network.
+5. Reject `nodes != 1`, `gpus_per_node > 2`, or `nodes * gpus_per_node > 2` before calling `sbatch`.
+6. Set cache, temporary, compilation, and model output directories to explicit per-user locations. Never rely on login-node `/tmp`.
+7. Add traps for `TERM`, `INT`, and normal exit. Stop the server, wait for children, and preserve the final sanitized metrics.
+8. Add a readiness timeout and bounded retry behavior only for idempotent health checks.
+9. Keep the default API loopback-only. If SSH forwarding is approved, document a tunnel through `login.rc.ucmerced.edu`; otherwise keep the client in the same allocation or use approved Open OnDemand access.
+10. Require an API token if a server is bound beyond loopback, even on the cluster network. Because vLLM documents unauthenticated non-`/v1` routes, an API key is not a substitute for loopback binding and tunneling.
+11. Generate a minimal OpenCode provider snippet from the selected profile so its model ID, context limit, output limit, endpoint, and provider package cannot drift from the server configuration.
 
 **Exit criteria:** Adding a tested model requires a data profile and result record, not a copied Slurm script.
 
@@ -507,38 +566,38 @@ For every configuration:
 - begin on `test` with a 10–30 minute request;
 - reduce context/concurrency before adding GPUs;
 - test one GPU before two when memory permits;
+- remain on one node and never exceed two GPUs total;
 - run at least three warm requests and one repeated/concurrent set;
 - record OOM and unsupported-kernel failures as results rather than hiding them;
 - compare output format against the model's official chat template; and
-- promote to a 3-day public GPU queue only after startup and utilization are understood.
+- promote to a longer public GPU queue only after startup and utilization are understood; use the shortest measured wall time with reasonable cleanup margin rather than requesting the 3-day maximum.
 
 **Exit criteria:** At least one model in each core family is verified, and every other listed configuration is accurately labeled.
 
 ### Phase 7 — Largest-model experiments
 
-**Goal:** Identify the largest **verified** model without turning theoretical aggregate VRAM into a promise.
+**Goal:** Identify the largest **verified** model within one node and two GPUs without turning theoretical aggregate VRAM into a promise.
 
 Tasks:
 
-1. Create a separate experimental multi-node launcher using `torchrun`, Ray, or the serving runtime's documented Slurm method. Select only one mechanism after a minimal two-node collective test succeeds.
-2. Verify interface selection and NCCL across HDR-100 InfiniBand without hard-coding a private node name.
-3. Confirm whether tensor parallel sizes required by each model are compatible with four GPUs and two GPUs per node.
-4. Stage model weights before allocation and verify that 256 GB host RAM per node is enough for load/conversion behavior.
-5. Test in this order:
+1. Keep every experiment on one node; test same-node NCCL/process startup before any two-GPU server.
+2. Confirm that the runtime supports tensor or pipeline parallel size 2 for the exact architecture and quantization.
+3. Stage model weights before allocation and request host RAM based on observed loading behavior without exceeding the partition's live memory policy.
+4. Test in this order:
    - Llama 4 Scout BF16 on two H200s, if not already verified;
-   - Llama 4 Maverick FP8 on four H200s;
-   - Nemotron 3 Ultra NVFP4 on four H200s; and
-   - Mistral Large 3 NVFP4 on four H200s.
-6. Use a small context and concurrency of one for the first load. Increase context only after peak memory is known.
+   - Nemotron 3 Super NVFP4 on one H200 and, only if required, two H200s; and
+   - Mistral Small 4 NVFP4 on one H200 and, only if required, two H200s.
+5. Record Llama 4 Maverick, Nemotron 3 Ultra, Mistral Large 3, and Qwen 3.5 397B as cap-based non-fits without downloading their weights.
+6. Use an 8K context and concurrency of one for the first load. Increase context only after peak memory is known.
 7. Stop an experiment if:
-   - the vendor requires more GPUs than Pinnacles exposes per job;
+   - the vendor requires more than two GPUs or a GPU generation unavailable on Pinnacles;
    - runtime support requires an unreviewed patch;
    - weight storage would leave less than the required safety margin;
-   - NCCL is unstable or throughput is unusably low across nodes; or
+   - same-node two-GPU communication is unstable or throughput is unusably low; or
    - the job materially underutilizes scarce H200 resources.
 8. Publish negative results and the exact reason. Do not recommend CPU offload as a core “fit” because it can transform a memory success into an unusably slow service.
 
-**Exit criteria:** The README names a date-stamped largest verified configuration and clearly separates it from larger theoretical/unsupported candidates.
+**Exit criteria:** The README names a date-stamped largest verified one-/two-GPU configuration and clearly separates it from larger cap-based non-fits.
 
 ### Phase 8 — Student usability, evaluation, and release
 
@@ -641,7 +700,7 @@ Advertised context windows such as 256K, 1M, or 10M are model capabilities, not 
 
 ### 11.4 Topology gate
 
-Memory summed across devices is not automatically usable. A two-GPU same-node configuration and a four-GPU two-node configuration have different communication paths. A model that needs an eight-way tensor-parallel launch does not fit the public job shape merely because four H200s have enough aggregate bytes.
+Memory summed across devices is not automatically usable. Every multi-GPU profile is limited to two same-node GPUs and must use a supported tensor/pipeline-parallel size of 2. A model that requires four or eight ranks does not fit this project even if some larger scheduler allocation could provide enough aggregate bytes.
 
 ---
 
@@ -666,7 +725,8 @@ Memory summed across devices is not automatically usable. A two-GPU same-node co
 - Server start, readiness, request, malformed request, and clean shutdown.
 - Cancellation and wall-time behavior.
 - Same-node two-GPU communication test before model sharding.
-- Two-node NCCL test before any frontier model.
+- Explicit assertion that no generated submission requests a second node or a third GPU.
+- OpenCode chat, streaming, model-ID, context-limit, tool-call, tool-result, and bounded edit/test acceptance checks.
 
 ### 12.3 Model quality/safety smoke checks
 
@@ -705,7 +765,7 @@ Performance comparisons use the same prompt token count, output limit, context s
 2. **Data classification:** Published CIRT policy says campus clusters do not support P3/P4 sensitive data. The tutorial will use only public synthetic prompts and will tell students to obtain Challenge-specific data handling guidance.
 3. **Secrets:** GitHub tokens, Hugging Face tokens, API keys, and generated server credentials must never be committed or written to Slurm logs. Error reporting must redact authorization headers and query strings.
 4. **Network exposure:** Loopback is the default. Any tunnel or non-loopback binding must be documented only after CIRT confirmation. Public exposure is out of scope.
-5. **Model licenses:** Gemma and Llama may require manual acceptance; NVIDIA models use their stated model licenses; Mistral candidates listed here use Apache 2.0. The repository license covers project code and prose, not third-party weights.
+5. **Model licenses:** Gemma 4 and the listed Mistral candidates use Apache 2.0; Llama requires the applicable Meta community license/access flow; NVIDIA models use the license named on each checkpoint. The repository license covers project code and prose, not third-party weights.
 6. **Supply chain:** Prefer developer-owned repositories and immutable revisions. A third-party quantization requires maintainer review of provenance, format, license, and checksum before becoming a core profile.
 7. **Remote code:** `trust_remote_code=True` is not a harmless convenience. If a model requires it, pin the revision, inspect the code, document the decision, and isolate it from the default environment where practical.
 8. **Generated actions:** Tool-call examples serialize proposals only. The tutorial will not let a model execute arbitrary shell commands or access student credentials.
@@ -770,7 +830,7 @@ All volatile facts—cluster inventory, model revision, package version, and sup
 | M4 | Generic model profile launcher | M3 |
 | M5 | Gemma 4 family and Nemotron 3.5 Lightning validated | M4 |
 | M6 | Llama 4 Scout and Mistral Small 4 validated | license access and M4 |
-| M7 | Largest-model experiment report | stable one-/two-GPU results and multi-node communication probe |
+| M7 | Largest-model experiment report | stable one-/two-GPU results and same-node communication probe |
 | M8 | Student clean-room trial and `v0.1.0` release | M0–M7 core criteria |
 
 M0 is the only administrative blocker. Implementation of safe local structure and small test-partition examples can proceed in parallel, but long-queue/H200 claims cannot be finalized without it.
@@ -784,7 +844,7 @@ M0 is the only administrative blocker. Implementation of safe local structure an
 3. Will CIRT provide a reservation and/or shared read-only model cache for the event?
 4. Which client experience should be primary: command-line `curl`/Python, Jupyter, or an optional web UI?
 5. Is multimodal input a core learning objective, or should the first release focus on text and tool-call formatting?
-6. Should the repository optimize for vLLM as the common API server, or allow Transformers for the newest architectures until vLLM support stabilizes?
+6. Which models, if any, justify promoting SGLang over the default vLLM path after like-for-like testing?
 7. May students use SSH port forwarding to compute-node services, and what approved route should the tutorial show?
 8. Which benchmark best represents the Challenge workload without exposing Challenge data?
 9. Should third-party quantized checkpoints be permitted, or should all core paths use only developer-published artifacts?
@@ -803,4 +863,4 @@ Defaults until these are answered: text-first, CLI/Python client, loopback-only 
 5. Implement the Gemma 4 E2B vertical slice.
 6. Draft the student README from the commands and outputs that actually passed.
 7. Add Nemotron 3.5 Lightning, Gemma 4 26B/31B, Llama 4 Scout, and Mistral Small 4 in that order.
-8. Attempt multi-node/largest-model experiments only after the core tutorial is reliable and CIRT confirms the intended use is appropriate.
+8. Attempt one-node/two-GPU capacity-frontier experiments only after the core tutorial is reliable and CIRT confirms the intended use is appropriate.
