@@ -175,6 +175,63 @@ should include **`gemma4-31b`**, the name that OpenCode will send in API request
 The server listens on the compute node's loopback interface. The address is
 reachable by OpenCode in this allocation, not by a browser on your laptop.
 
+### Use OpenCode from another terminal
+
+You can keep vLLM in the compute allocation and run OpenCode from your laptop
+through an SSH tunnel. This is useful when you want OpenCode's tools to edit a
+local laptop checkout. The Slurm job and server must remain alive.
+
+First, inside the compute shell, record the node name:
+
+```bash
+hostname
+```
+
+Suppose it prints `gnode028.cluster`. On your **laptop**, open a second
+terminal and run the following, replacing both placeholders:
+
+```bash
+ssh -J <UCM_USERNAME>@login.rc.ucmerced.edu \
+  -N -L 18000:127.0.0.1:8000 \
+  <UCM_USERNAME>@gnode028.cluster
+```
+
+Keep this SSH command running. It forwards your laptop's
+`127.0.0.1:18000` to port 8000 on the compute node. In a third **laptop**
+terminal, verify the tunnel:
+
+```bash
+curl --fail http://127.0.0.1:18000/health
+curl --fail http://127.0.0.1:18000/v1/models
+```
+
+If direct SSH to compute nodes is disabled, create the tunnel from the compute
+shell back to the login node instead:
+
+```bash
+ssh -N -R 18000:127.0.0.1:8000 \
+  <UCM_USERNAME>@login.rc.ucmerced.edu
+```
+
+Then run OpenCode in a separate login-node terminal and use
+`http://127.0.0.1:18000/v1` as its server URL. Keep the reverse-tunnel command
+running in the compute shell. Do not run inference or heavy tests on the login
+node; OpenCode's file and shell tools run wherever OpenCode itself runs.
+
+For the forward-tunnel workflow, copy `config/opencode-gemma.json` into your
+laptop project and change its provider URL from
+`http://127.0.0.1:8000/v1` to `http://127.0.0.1:18000/v1`. The model remains
+`gemma4-31b`. Start OpenCode from the laptop project directory:
+
+```bash
+opencode
+```
+
+The tunnel carries API traffic only; it does not move your files or shell
+commands to Pinnacles. To have OpenCode edit and test files on Pinnacles, keep
+OpenCode inside the compute allocation and use a second terminal to re-enter
+the same job with `srun --jobid=<JOB_ID> --overlap --pty bash`.
+
 If you accidentally return to a login node after starting the server, first
 check whether the allocation still exists:
 
