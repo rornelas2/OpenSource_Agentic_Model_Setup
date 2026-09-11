@@ -29,7 +29,11 @@ Files and shell commands are handled on the machine running OpenCode. A laptop
 client therefore edits laptop files unless its tools are explicitly configured
 otherwise. See the [OpenCode provider documentation](https://opencode.ai/docs/providers/).
 
-**Start here:** follow the Gemma steps below, then the [Meta lesson](#9-run-meta-muse-glimmer-through-opencode). The [reference section](#reference-gpus-memory-and-model-selection) explains GPU memory, storage, quantization, and benchmark results.
+**Start here:** follow the Gemma steps below, then the
+[Meta lesson](#9-run-meta-muse-glimmer-through-opencode) and
+[NVIDIA lesson](#10-run-nvidia-nemotron-3-super-through-opencode). The
+[reference section](#reference-gpus-memory-and-model-selection) explains GPU
+memory, storage, quantization, and benchmark results.
 
 ## 1. Log in and open the tutorial
 
@@ -504,6 +508,149 @@ exit
 
 On the login node, use `squeue --me` to confirm the allocation has ended.
 
+## 10. Run NVIDIA Nemotron 3 Super through OpenCode
+
+After Gemma and Meta, repeat the workflow with the official
+**NVIDIA Nemotron 3 Super 120B-A12B NVFP4 checkpoint on one H200**. Use 8 CPU
+cores, 192 GB system RAM, and a 32,768-token context limit. Stop any earlier
+model server first because each lesson uses port 8000.
+
+Budget an additional **100 GB free in data** and **20 GB free in scratch**.
+The checkpoint occupies about 75 GiB on disk and its isolated environment
+about 7.7 GiB. The scripts use the same pinned Python 3.11, vLLM 0.29.0, and
+OpenCode 1.18.30 versions as the other lessons. The dependency list is in
+[`env/nemotron-requirements.lock`](env/nemotron-requirements.lock).
+
+Validated on Pinnacles on **September 10, 2026**: chat, streaming, an automatic
+tool-call round trip, and an OpenCode repair with completed read, edit, and test
+tool calls. All four independent tests passed and the test file stayed
+unchanged. Initial server startup took about **5½ minutes**. Loading the model
+reported **69.46 GiB**; device memory after the agent run was **126,171 MiB**
+(about 123.2 GiB), including reserved cache and runtime state. This validates a
+short coding session at a configured 32K ceiling, not a full-context stress
+test. vLLM also warned that the checkpoint does not provide calibrated FP8
+attention q/probability scales. The short repair passed, but longer-session
+accuracy with this cache setting has not been measured.
+
+### Install and download on a CPU allocation
+
+On the **login node**, from the tutorial directory:
+
+```bash
+module load anaconda3/2023.09-0
+srun --partition=short --nodes=1 --ntasks=1 --cpus-per-task=4 \
+  --mem=16G --time=00:30:00 bash scripts/setup-nemotron.sh
+srun --partition=short --nodes=1 --ntasks=1 --cpus-per-task=8 \
+  --mem=96G --time=02:00:00 bash scripts/download-nemotron.sh
+```
+
+The download can use substantial system RAM while transferring its 17 weight
+shards, so this lesson requests 96 GB. Wait for both commands to finish. The
+scripts install the runtime at
+`/data/$USER/pinnacles-agents/envs/nemotron-vllm` and download **80.32 GB of
+weights** to
+`/data/$USER/pinnacles-agents/models/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4`.
+The checkpoint is pinned to revision
+`ff433f5493e25d631c9f12b5d55c674229923d02`. Rerunning the command reuses
+completed files. Consult [NVIDIA's model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4)
+for the model license and intended use.
+
+### Start Nemotron on an H200
+
+On the **login node**, request a fresh compute shell:
+
+```bash
+srun --partition=cenvalarc.gpu --nodes=1 --ntasks=1 \
+  --gres=gpu:nvidia_h200_nvl:1 --cpus-per-task=8 --mem=192G \
+  --time=01:00:00 --pty bash
+```
+
+Inside the **compute shell**:
+
+```bash
+cd ~/OpenSource_Agentic_Model_Setup
+export TUTORIAL_DIR="$PWD"
+source scripts/activate-nemotron.sh
+hostname
+echo "$SLURM_JOB_ID"
+nvidia-smi --query-gpu=name,memory.total --format=csv
+mkdir -p "$AGENT_ROOT/logs"
+export MODEL_SERVER_LOG="$AGENT_ROOT/logs/nemotron-${SLURM_JOB_ID}.log"
+bash scripts/serve-nemotron.sh > "$MODEL_SERVER_LOG" 2>&1 &
+export MODEL_SERVER_PID=$!
+tail -f "$MODEL_SERVER_LOG"
+```
+
+Wait for `Application startup complete`, then press **Ctrl-C to leave `tail`**.
+The background server continues running. Check it from this **compute shell**:
+
+```bash
+curl --fail http://127.0.0.1:8000/health
+curl --fail http://127.0.0.1:8000/v1/models
+curl --fail-with-body http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "nemotron-3-super",
+    "messages": [{"role": "user", "content": "Explain a Python list comprehension in two sentences."}],
+    "max_tokens": 4096
+  }'
+```
+
+The model list should contain **`nemotron-3-super`**. The checkpoint mixes FP8
+and NVFP4 quantization. H200 does not execute FP4 natively, so the tested vLLM
+configuration keeps the compressed weights and uses its Marlin weight-only FP4
+kernel for the NVFP4 layers. It also uses an FP8 KV cache, one active request,
+NVIDIA's thinking template, the `nemotron_v3` reasoning parser, and the
+`qwen3_coder` tool parser. These choices are encoded in
+`scripts/serve-nemotron.sh`.
+
+### Repair a fresh copy of the exercise
+
+Inside the **same compute shell**:
+
+```bash
+mkdir -p "$AGENT_ROOT/work"
+cp -R "$TUTORIAL_DIR/examples/repair-mean" "$AGENT_ROOT/work/nemotron-agent"
+cd "$AGENT_ROOT/work/nemotron-agent"
+cp "$TUTORIAL_DIR/config/opencode-nemotron.json" opencode.json
+python -m unittest -v
+opencode
+```
+
+Use a new directory name if `nemotron-agent` already exists. The tests should
+fail before the repair. In OpenCode, confirm the model is
+**`pinnacles/nemotron-3-super`**, then enter:
+
+> Read summary.py and test_summary.py. Fix mean_readings in summary.py so that it
+> ignores None, includes zero, and raises ValueError when no readings remain.
+> Do not edit test_summary.py. Use your file-editing tool to make the change,
+> then run python -m unittest -v. Report the test result.
+
+Review and approve the file edit and test command when prompted. After the
+agent finishes, exit OpenCode and verify the result yourself:
+
+```bash
+python -m unittest -v
+diff -u "$TUTORIAL_DIR/examples/repair-mean/summary.py" summary.py
+cmp "$TUTORIAL_DIR/examples/repair-mean/test_summary.py" test_summary.py
+```
+
+All four tests should pass, `summary.py` should differ, and `cmp` should print
+nothing. The provider configuration reserves 8,192 output tokens within the
+32K context window. The [SSH tunnel workflow](#use-opencode-from-another-terminal)
+also applies: use `config/opencode-nemotron.json`, change the URL to port 18000
+on your laptop, and keep the model name `nemotron-3-super`.
+
+When finished, stop the server and release the allocation:
+
+```bash
+kill "$MODEL_SERVER_PID"
+wait "$MODEL_SERVER_PID"
+exit
+```
+
+On the login node, use `squeue --me` to confirm the allocation has ended.
+
 ## Reference: GPUs, memory, and model selection
 
 ### GPU allocation
@@ -654,14 +801,13 @@ include successful generation at the intended context, not just loading weights.
 
 Use an instruction-tuned or agent-ready checkpoint for OpenCode. A pretrained
 base model is not automatically ready to follow instructions and call tools.
-Gemma and Meta have passed the coding exercise above. NVIDIA awaits its own
-Pinnacles serving lesson.
+Gemma, Meta, and NVIDIA have passed the coding exercise above.
 
 | Model | Role in the tutorial | Capacity consideration |
 |---|---|---|
 | [Google Gemma 4 31B IT](https://huggingface.co/google/gemma-4-31B-it) | Tested Gemma lesson | BF16 serving and the OpenCode exercise passed on one H200. A single A100 or L40S needs quantization for GPU-resident weights. |
 | [Meta Muse Glimmer 30B](https://huggingface.co/meta-models/Muse-Glimmer-30B) | Tested Meta lesson | BF16 serving and the OpenCode exercise passed on one H200. Quantized GGUF variants for smaller GPUs remain untested here. |
-| [NVIDIA Nemotron 3 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) | Larger Nemotron candidate | Quantization reduces storage substantially; the exact quantized runtime must support Pinnacles hardware. |
+| [NVIDIA Nemotron 3 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) | Tested NVIDIA lesson | Mixed FP8/NVFP4 serving and the OpenCode exercise passed on one H200 through vLLM's Marlin FP4 fallback. |
 
 Gemma 4 31B has 30.7B parameters. The BF16 H200 run reported **57.91 GiB** for
 model loading. Device memory use after the agent exercise was **120,281 MiB**
@@ -674,19 +820,18 @@ the 26B-A4B model is the next smaller family member to consider. Reducing
 precision or using an H200 may preserve the 31B target without downsizing.
 [Google model card](https://ai.google.dev/gemma/docs/core/model_card_4)
 
-Nemotron 3.5 Lightning 30B-A3B is a smaller alternative if Super cannot be served
-well. Its [official card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16)
+Nemotron 3.5 Lightning 30B-A3B is a smaller candidate for a future lesson. Its
+[official card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16)
 describes a hybrid MoE model and deployments on Ampere and Hopper GPUs. The
-larger Super quantized card documents Blackwell examples; copying a B200 recipe
-does not establish H200 compatibility.
+larger Super quantized card documents Blackwell examples; this tutorial uses a
+separately validated H200 Marlin path.
 
 Nemotron 3 Ultra 550B-A55B is a further capacity candidate for a future
 multi-node exercise. Four-bit weight arithmetic alone is about 275 GB before
 metadata and higher-precision tensors. Its [official deployment guidance](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4/raw/main/README.md)
 uses larger configurations, including four Blackwell GPUs or eight H100s.
 Neither that recipe nor aggregate memory arithmetic establishes a working
-four-H200 Pinnacles deployment. **The largest usable Nemotron is still to be
-determined.**
+four-H200 Pinnacles deployment. **Ultra remains unvalidated on Pinnacles.**
 
 #### What do the benchmark scores mean?
 
