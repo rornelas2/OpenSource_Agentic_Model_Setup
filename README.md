@@ -124,6 +124,17 @@ Wait for the compute shell. It stays open until you exit or the hour expires.
 All following commands, including OpenCode and its tests, run **inside this
 compute shell**. Keep this terminal connected while working.
 
+Confirm that you are on the compute node before starting the server:
+
+```bash
+hostname
+echo "$SLURM_JOB_ID"
+```
+
+The hostname should look like `gnode###.cluster`, and `SLURM_JOB_ID` should
+contain a job number. A hostname such as `rclogin02` means you are on the login
+node. Do not start the server or run its `curl` checks there.
+
 ```bash
 cd ~/OpenSource_Agentic_Model_Setup
 export TUTORIAL_DIR="$PWD"
@@ -163,6 +174,26 @@ The health check succeeds with an empty response body. The models response
 should include **`gemma4-31b`**, the name that OpenCode will send in API requests.
 The server listens on the compute node's loopback interface. The address is
 reachable by OpenCode in this allocation, not by a browser on your laptop.
+
+If you accidentally return to a login node after starting the server, first
+check whether the allocation still exists:
+
+```bash
+squeue --me
+```
+
+If it is still running, replace `<JOB_ID>` and enter that allocation again:
+
+```bash
+srun --jobid=<JOB_ID> --overlap --pty bash
+hostname
+curl --fail http://127.0.0.1:8000/health
+```
+
+If no job remains, Slurm has already stopped the server. Request a new compute
+shell in step 4 and start the server again. `127.0.0.1` always means the
+machine where the command runs; a login-node `curl` cannot reach a server bound
+to the compute node's loopback interface.
 
 The script sets BF16 precision, a 32,768-token context limit, one active request,
 and an 85% GPU-memory budget. It enables Gemma's tool and reasoning parsers and
