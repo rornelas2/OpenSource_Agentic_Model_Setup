@@ -29,7 +29,7 @@ Files and shell commands are handled on the machine running OpenCode. A laptop
 client therefore edits laptop files unless its tools are explicitly configured
 otherwise. See the [OpenCode provider documentation](https://opencode.ai/docs/providers/).
 
-**Start here:** follow the practical lessons below. The [reference section](#reference-gpus-memory-and-model-selection) explains GPU memory, storage, quantization, and benchmark results.
+**Start here:** follow the Gemma steps below, then the [Meta lesson](#9-run-meta-muse-glimmer-through-opencode). The [reference section](#reference-gpus-memory-and-model-selection) explains GPU memory, storage, quantization, and benchmark results.
 
 ## 1. Log in and open the tutorial
 
@@ -364,9 +364,145 @@ unavailable.
 | OpenCode returns text but makes no edits | Check approval prompts and that both Gemma parsers and the supplied chat template are enabled. |
 | Request exceeds context limit | Begin a new session or reduce attached files/tool output; input and output share the context budget. |
 
-The next model lessons will cover **Meta Muse Glimmer**, followed by **NVIDIA
-Nemotron**. Their serving configurations remain untested here.
+## 9. Run Meta Muse Glimmer through OpenCode
 
+After completing Gemma, repeat the workflow with **Muse Glimmer 30B in BF16 on
+one H200**. Use 8 CPU cores, 128 GB system RAM, and a 32,768-token context limit.
+This lesson uses a separate Python environment and model directory. Stop your
+Gemma server before starting Muse on the same node: both use port 8000.
+
+Budget an additional **90 GB free in data** and **30 GB free in scratch**.
+Keeping both checkpoints and environments uses storage for both; check your
+remaining quota before downloading. Muse uses the same pinned Python 3.11,
+vLLM 0.29.0, and OpenCode 1.18.30 versions as Gemma. Its dependency list is in
+[`env/muse-requirements.lock`](env/muse-requirements.lock).
+
+Validated on Pinnacles on **September 10, 2026**: chat, streaming, an automatic
+tool-call round trip, and an OpenCode repair with all four tests passing and the
+test file unchanged. The first startup took about **5½ minutes**, including
+checkpoint loading and kernel compilation. Model loading reported **52.07 GiB**;
+device memory after the agent run was **120,661 MiB** (about 117.8 GiB), including
+reserved cache and runtime state. This validates a short coding session at a
+configured 32K ceiling, not a full-context stress test.
+
+### Install and download on a CPU allocation
+
+On the **login node**, from the tutorial directory:
+
+```bash
+module load anaconda3/2023.09-0
+srun --partition=short --nodes=1 --ntasks=1 --cpus-per-task=4 \
+  --mem=16G --time=00:30:00 bash scripts/setup-muse.sh
+srun --partition=short --nodes=1 --ntasks=1 --cpus-per-task=4 \
+  --mem=64G --time=01:00:00 bash scripts/download-muse.sh
+```
+
+The download requests 64 GB of system RAM; a 16 GB download allocation ran out
+of memory during validation. Wait for each command to finish successfully.
+The scripts install the runtime at `/data/$USER/pinnacles-agents/envs/muse-vllm` and download the official
+checkpoint (about **59.6 GB** of weights) to
+`/data/$USER/pinnacles-agents/models/Muse-Glimmer-30B`.
+The model revision is pinned to
+`a4e59da52a7bc87ae7251dd5545c0dd437c44b68`. Rerunning the download reuses completed
+files. Consult [Meta's model card](https://huggingface.co/meta-models/Muse-Glimmer-30B)
+for its license and usage information.
+
+### Start Muse on an H200
+
+On the **login node**, request a fresh compute shell:
+
+```bash
+srun --partition=cenvalarc.gpu --nodes=1 --ntasks=1 \
+  --gres=gpu:nvidia_h200_nvl:1 --cpus-per-task=8 --mem=128G \
+  --time=01:00:00 --pty bash
+```
+
+Inside the **compute shell**:
+
+```bash
+cd ~/OpenSource_Agentic_Model_Setup
+export TUTORIAL_DIR="$PWD"
+source scripts/activate-muse.sh
+hostname
+echo "$SLURM_JOB_ID"
+nvidia-smi --query-gpu=name,memory.total --format=csv
+mkdir -p "$AGENT_ROOT/logs"
+export MODEL_SERVER_LOG="$AGENT_ROOT/logs/muse-${SLURM_JOB_ID}.log"
+bash scripts/serve-muse.sh > "$MODEL_SERVER_LOG" 2>&1 &
+export MODEL_SERVER_PID=$!
+tail -f "$MODEL_SERVER_LOG"
+```
+
+Wait for `Application startup complete`, then press **Ctrl-C to leave `tail`**.
+The background server continues running. Check it from this **compute shell**:
+
+```bash
+curl --fail http://127.0.0.1:8000/health
+curl --fail http://127.0.0.1:8000/v1/models
+curl --fail-with-body http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "muse-glimmer-30b",
+    "messages": [{"role": "user", "content": "Explain a Python list comprehension in two sentences."}],
+    "max_tokens": 2048
+  }'
+```
+
+The model list should contain **`muse-glimmer-30b`**. Muse uses reasoning before
+answering; a very small output budget can expire before an answer appears.
+The server uses the checkpoint's chat template, **high reasoning strength**,
+and Muse-specific tool and reasoning parsers. It preserves the checkpoint's
+sampling defaults: temperature 1.0, top-p 0.95, and top-k 64. This exercise is
+text-only, with one active request and an 85% GPU-memory budget.
+See [vLLM's model support](https://docs.vllm.ai/en/stable/models/supported_models/)
+and [tool-calling documentation](https://docs.vllm.ai/en/stable/features/tool_calling/).
+
+### Repair a fresh copy of the exercise
+
+Inside the **same compute shell**:
+
+```bash
+mkdir -p "$AGENT_ROOT/work"
+cp -R "$TUTORIAL_DIR/examples/repair-mean" "$AGENT_ROOT/work/muse-agent"
+cd "$AGENT_ROOT/work/muse-agent"
+cp "$TUTORIAL_DIR/config/opencode-muse.json" opencode.json
+python -m unittest -v
+opencode
+```
+
+Use a new directory name if `muse-agent` already exists. The tests should fail
+before the repair. In OpenCode, confirm the model is
+**`pinnacles/muse-glimmer-30b`**, then enter:
+
+> Read summary.py and test_summary.py. Fix mean_readings in summary.py so that it
+> ignores None, includes zero, and raises ValueError when no readings remain.
+> Do not edit test_summary.py. Use your file-editing tool to make the change,
+> then run python -m unittest -v. Report the test result.
+
+Review and approve the file edit and test command when prompted. After the
+agent finishes, exit OpenCode and verify the result yourself:
+
+```bash
+python -m unittest -v
+diff -u "$TUTORIAL_DIR/examples/repair-mean/test_summary.py" test_summary.py
+```
+
+All four tests should pass, and `diff` should print nothing. The provider
+configuration reserves an output budget of 8,192 tokens within the 32K context
+window. The [SSH tunnel workflow](#use-opencode-from-another-terminal) also
+applies: use `config/opencode-muse.json`, change the URL to port 18000 on your
+laptop, and keep the model name `muse-glimmer-30b`.
+
+When finished, stop the server from the compute shell that launched it and
+release the allocation:
+
+```bash
+kill "$MODEL_SERVER_PID"
+wait "$MODEL_SERVER_PID"
+exit
+```
+
+On the login node, use `squeue --me` to confirm the allocation has ended.
 
 ## Reference: GPUs, memory, and model selection
 
@@ -518,13 +654,13 @@ include successful generation at the intended context, not just loading weights.
 
 Use an instruction-tuned or agent-ready checkpoint for OpenCode. A pretrained
 base model is not automatically ready to follow instructions and call tools.
-Gemma has passed the coding exercise above. Meta and NVIDIA remain candidates
-awaiting their own Pinnacles serving lessons.
+Gemma and Meta have passed the coding exercise above. NVIDIA awaits its own
+Pinnacles serving lesson.
 
 | Model | Role in the tutorial | Capacity consideration |
 |---|---|---|
 | [Google Gemma 4 31B IT](https://huggingface.co/google/gemma-4-31B-it) | Tested Gemma lesson | BF16 serving and the OpenCode exercise passed on one H200. A single A100 or L40S needs quantization for GPU-resident weights. |
-| [Meta Muse Glimmer 30B](https://huggingface.co/meta-models/Muse-Glimmer-30B) | Agent-focused Meta target | BF16 is a candidate for H200; Meta also provides quantized GGUF releases for smaller GPUs. |
+| [Meta Muse Glimmer 30B](https://huggingface.co/meta-models/Muse-Glimmer-30B) | Tested Meta lesson | BF16 serving and the OpenCode exercise passed on one H200. Quantized GGUF variants for smaller GPUs remain untested here. |
 | [NVIDIA Nemotron 3 Super 120B-A12B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) | Larger Nemotron candidate | Quantization reduces storage substantially; the exact quantized runtime must support Pinnacles hardware. |
 
 Gemma 4 31B has 30.7B parameters. The BF16 H200 run reported **57.91 GiB** for

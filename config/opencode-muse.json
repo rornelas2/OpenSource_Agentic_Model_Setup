@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "pinnacles/muse-glimmer-30b",
+  "small_model": "pinnacles/muse-glimmer-30b",
+  "enabled_providers": ["pinnacles"],
+  "share": "disabled",
+  "autoupdate": false,
+  "provider": {
+    "pinnacles": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pinnacles GPU",
+      "options": {"baseURL": "http://127.0.0.1:8000/v1"},
+      "models": {
+        "muse-glimmer-30b": {
+          "name": "Muse Glimmer 30B (H200)",
+          "limit": {"context": 32768, "output": 8192}
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "task": "deny"
+  }
+}
