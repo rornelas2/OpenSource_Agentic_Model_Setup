@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "pinnacles/gemma4-31b",
+  "small_model": "pinnacles/gemma4-31b",
+  "enabled_providers": ["pinnacles"],
+  "share": "disabled",
+  "autoupdate": false,
+  "provider": {
+    "pinnacles": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pinnacles GPU",
+      "options": {"baseURL": "http://127.0.0.1:8000/v1"},
+      "models": {
+        "gemma4-31b": {
+          "name": "Gemma 4 31B (H200)",
+          "limit": {"context": 32768, "output": 4096}
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "task": "deny"
+  }
+}

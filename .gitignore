@@ -1,0 +1,35 @@
+# Local continuity notes and work in progress
+/codex.md
+/AGENTS.md
+/.local/
+/implementation.md
+/results/
+/logs/
+
+# Credentials
+.env
+.env.*
+credentials.json
+auth.json
+.hf_token
+token.txt
+credentials/
+secrets/
+*.token
+
+# Weights, environments, and runtime artifacts
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+*.sif
+.venv/
+envs/
+.cache/
+models/
+__pycache__/
+*.py[cod]
+slurm-*.out
+*.log
+.DS_Store
