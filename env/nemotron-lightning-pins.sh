@@ -1,0 +1,8 @@
+# Official NVIDIA Nemotron 3.5 Lightning 30B NVFP4 (mixed-precision FP4/FP8).
+# https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/tree/bee7596271d1495f6992ae224aefde4410e816b8
+# Publisher: NVIDIA. OpenMDW-1.1 model license.
+NEMOTRON_LIGHTNING_REPO=nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+NEMOTRON_LIGHTNING_REVISION=bee7596271d1495f6992ae224aefde4410e816b8
+NEMOTRON_LIGHTNING_SHARDS=52
+NEMOTRON_LIGHTNING_BYTES=21561882284
+NEMOTRON_LIGHTNING_ALIAS=nemotron-3.5-lightning

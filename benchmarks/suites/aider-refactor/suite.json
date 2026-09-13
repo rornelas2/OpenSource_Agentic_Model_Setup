@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "id": "aider-refactor",
+  "protocol_status": "candidate",
+  "release": "c90dfb6",
+  "source": {
+    "evaluator_repository": "Aider-AI/refactor-benchmark",
+    "evaluator_revision": "c90dfb67d829f4da2759955a69111fc5f3b0e0fd",
+    "dataset_repository": "Aider-AI/refactor-benchmark",
+    "dataset_revision": "c90dfb67d829f4da2759955a69111fc5f3b0e0fd",
+    "split": "main"
+  },
+  "task_manifest": {
+    "path": "benchmarks/suites/aider-refactor/tasks.jsonl",
+    "sha256": "460f0d6047b11e7d892829dead2c137dd4613eea179f8a94004979f7b552d305",
+    "expected_count": 89
+  },
+  "pilot_task_ids": [
+    "baseconv_BaseConverter_convert",
+    "diffsettings_Command_output_hash",
+    "gateway_Gateway_get_and_delete_all_sms",
+    "cuda_cpp_scheduling_CUDACPPScheduling__can_fuse_epilogue_impl",
+    "autosave_AutosaveForPlugin_get_files_to_recover",
+    "generic_bsd_GenericBsdIfconfigNetwork_parse_inet_line",
+    "sharding_policies_MaxShardSizePolicy__add_partition",
+    "methods_BaseMethodsTests_test_where_series",
+    "shell_Command_python",
+    "operations_OracleOperations_convert_extent"
+  ],
+  "protocol": {
+    "path": "benchmarks/suites/aider-refactor/protocol.json",
+    "sha256": "3cbdd235dfd0d59d1bd9131c99471c3d1cb79b8e810cd6969902caeb794583f2"
+  },
+  "execution": {
+    "adapter": "benchmarks/adapters/aider_refactor.py",
+    "requires_code_execution": true,
+    "requires_container": false,
+    "primary_concurrency": 1
+  },
+  "budget": {
+    "attempts": 1,
+    "request_timeout_seconds": 600,
+    "max_model_requests": 1,
+    "max_tool_events": 1,
+    "max_generated_tokens": 8192,
+    "max_output_tokens": 8192,
+    "context_tokens": 32768
+  },
+  "scoring": {
+    "metric": "pass_at_1",
+    "unit": "fraction",
+    "denominator": "scheduled"
+  }
+}

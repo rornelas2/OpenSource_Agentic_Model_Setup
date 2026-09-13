@@ -1,0 +1,2 @@
+profile_id,suite_id,pilot,scheduled,completed,coverage,pass,fail,timeout,cancelled,infra_error,skipped,not_run,pass_rate,ci95_lower,ci95_upper,mean_reward,median_latency_s,mean_generated_tokens
+lightning-nvfp4-a100,mmlu-pro,True,28,28,1.0,17,9,2,0,0,0,0,0.6071,0.4241,0.7643,0.6071,7.146,1803.1

@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "mmlu-pro",
+  "status": "candidate",
+  "agent": null,
+  "prompt": {
+    "visible_fields": ["question", "options", "category", "five-validation-examples"],
+    "hidden_fields": ["answer", "answer_index", "test_cot_content"],
+    "shots_per_subject": 5,
+    "five_shot_question_ids": {
+      "biology": ["20", "21", "22", "23", "24"],
+      "business": ["15", "16", "17", "18", "19"],
+      "chemistry": ["25", "26", "27", "28", "29"],
+      "computer science": ["30", "31", "32", "33", "34"],
+      "economics": ["35", "36", "37", "38", "39"],
+      "engineering": ["40", "41", "42", "43", "44"],
+      "health": ["5", "6", "7", "8", "9"],
+      "history": ["55", "56", "57", "58", "59"],
+      "law": ["65", "66", "67", "68", "69"],
+      "math": ["0", "1", "2", "3", "4"],
+      "other": ["50", "51", "52", "53", "54"],
+      "philosophy": ["45", "46", "47", "48", "49"],
+      "physics": ["10", "11", "12", "13", "14"],
+      "psychology": ["60", "61", "62", "63", "64"]
+    },
+    "answer_format": "End the response with exactly: Answer: X"
+  },
+  "extraction": {
+    "artifact": "strict-final-answer-line",
+    "valid_choices": "A-J",
+    "invalid_or_ambiguous_is_incorrect": true,
+    "correctness_conditioned_retry": false
+  },
+  "sampling": {"temperature": 0, "top_p": 1, "max_output_tokens": 4096, "seed": 20260911},
+  "reasoning": "profile-native",
+  "limits": {"context_tokens": 16384, "attempts": 1, "concurrency": 1},
+  "notes": ["Pilot must confirm every rendered five-shot prompt fits while reserving the full output budget before freezing."]
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "aider-refactor",
+  "status": "candidate",
+  "agent": null,
+  "prompt": {
+    "visible_fields": ["instructions", "source_code", "src_file", "method", "class_name"],
+    "hidden_fields": ["class_children", "method_children"],
+    "language": "python",
+    "instruction": "Refactor the requested class method into a standalone top-level function. Return the entire modified Python file in a ```python ... ``` block."
+  },
+  "extraction": {
+    "artifact": "last-python-or-generic-code-fence-or-full-response",
+    "samples_per_problem": 1,
+    "execution_feedback": false
+  },
+  "sampling": {"temperature": 0, "top_p": 1, "max_output_tokens": 8192, "seed": 20260911},
+  "reasoning": "profile-native",
+  "limits": {"context_tokens": 32768, "attempts": 1, "concurrency": 1},
+  "notes": [
+    "Container-free software engineering benchmark based on Aider's 89 Python refactoring tasks from 9 real-world repositories evaluated via AST node analysis."
+  ]
+}

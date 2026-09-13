@@ -23,6 +23,6 @@
     "read": "allow",
     "glob": "allow",
     "grep": "allow",
-    "task": "deny"
+    "task": "allow"
   }
 }

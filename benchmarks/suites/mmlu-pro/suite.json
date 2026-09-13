@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "id": "mmlu-pro",
+  "protocol_status": "candidate",
+  "release": "MMLU-Pro-pinned-test-five-shot",
+  "source": {
+    "evaluator_repository": "TIGER-AI-Lab/MMLU-Pro",
+    "evaluator_revision": "f418b116db00b065c2aea046518d8fcf74d39872",
+    "dataset_repository": "TIGER-Lab/MMLU-Pro",
+    "dataset_revision": "b189ec765aa7ed75c8acfea42df31fdae71f97be",
+    "split": "test"
+  },
+  "task_manifest": {
+    "path": "benchmarks/suites/mmlu-pro/tasks.jsonl",
+    "sha256": "babdb9775ca4863d1af12a640063e9dcde2852025ff9650a0c1b32b6d2a90cc5",
+    "expected_count": 12032
+  },
+  "pilot_task_ids": [
+    "3393", "3197", "291", "132", "3781", "3783", "10393", "10548",
+    "7481", "6938", "11940", "11831", "6614", "6740", "5044", "4988",
+    "1302", "1615", "8104", "7711", "5805", "5497", "11228", "10856",
+    "9119", "9476", "2553", "2107"
+  ],
+  "protocol": {
+    "path": "benchmarks/suites/mmlu-pro/protocol.json",
+    "sha256": "58eceb7b8f0e5db776996cf1df5fc3b0ad53356c1a7a7c77a1ffb07aed626aac"
+  },
+  "execution": {
+    "adapter": "benchmarks/adapters/mmlu_pro.py",
+    "requires_code_execution": false,
+    "requires_container": false,
+    "primary_concurrency": 1
+  },
+  "budget": {
+    "attempts": 1,
+    "request_timeout_seconds": 600,
+    "max_model_requests": 1,
+    "max_tool_events": 1,
+    "max_generated_tokens": 4096,
+    "max_output_tokens": 4096,
+    "context_tokens": 16384
+  },
+  "scoring": {"metric": "micro_accuracy", "unit": "fraction", "denominator": "scheduled"}
+}

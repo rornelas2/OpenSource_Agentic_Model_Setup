@@ -1,0 +1,2 @@
+profile_id,suite_id,pilot,scheduled,completed,coverage,pass,fail,timeout,cancelled,infra_error,skipped,not_run,pass_rate,ci95_lower,ci95_upper,mean_reward,median_latency_s,mean_generated_tokens
+muse-dynamic-a100,aider-refactor,True,10,10,1.0,10,0,0,0,0,0,0,1.0,0.7225,1.0,1.0,85.633,3533.9

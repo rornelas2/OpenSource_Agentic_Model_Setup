@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "id": "livecodebench",
+  "protocol_status": "candidate",
+  "release": "release_v6-codegeneration-lite",
+  "source": {
+    "evaluator_repository": "LiveCodeBench/LiveCodeBench",
+    "evaluator_revision": "28fef95ea8c9f7a547c8329f2cd3d32b92c1fa24",
+    "dataset_repository": "livecodebench/code_generation_lite",
+    "dataset_revision": "0fe84c3912ea0c4d4a78037083943e8f0c4dd505",
+    "split": "test/release_v6"
+  },
+  "task_manifest": {
+    "path": "benchmarks/suites/livecodebench/tasks.jsonl",
+    "sha256": "d54b6543aa4ba6fa5d68b576a7f9567b6cd2f26f1500eb1b3ee1fc269188424a",
+    "expected_count": 1055
+  },
+  "pilot_task_ids": ["3811", "3309", "abc337_a", "3416", "abc329_c", "abc306_c", "3492", "3781", "3783", "3454"],
+  "protocol": {
+    "path": "benchmarks/suites/livecodebench/protocol.json",
+    "sha256": "2533bb6af83fbc48920fbfdac2809a40d0bb968602deda8c005bdcf2e14d2306"
+  },
+  "execution": {
+    "adapter": "benchmarks/adapters/livecodebench.py",
+    "requires_code_execution": true,
+    "requires_container": false,
+    "primary_concurrency": 1
+  },
+  "budget": {
+    "attempts": 1,
+    "request_timeout_seconds": 600,
+    "max_model_requests": 1,
+    "max_tool_events": 1,
+    "max_generated_tokens": 8192,
+    "max_output_tokens": 8192,
+    "context_tokens": 32768
+  },
+  "scoring": {"metric": "pass_at_1", "unit": "fraction", "denominator": "scheduled"}
+}

@@ -1,0 +1,2 @@
+profile_id,suite_id,pilot,scheduled,completed,coverage,pass,fail,timeout,cancelled,infra_error,skipped,not_run,pass_rate,ci95_lower,ci95_upper,mean_reward,median_latency_s,mean_generated_tokens
+lightning-nvfp4-a100,aider-refactor,True,10,10,1.0,6,1,3,0,0,0,0,0.6,0.3127,0.8318,0.6,32.503,7072.6

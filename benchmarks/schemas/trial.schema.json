@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rornelas2/OpenSource_Agentic_Model_Setup/benchmarks/schemas/trial.schema.json",
+  "title": "Terminal benchmark trial record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "task_id", "attempt_id", "status", "reason",
+    "started_utc", "ended_utc", "http_status", "finish_reason", "prompt_tokens",
+    "generated_tokens", "token_source", "metrics", "artifacts", "error_class"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": ["pass", "fail", "timeout", "cancelled", "infra_error", "skipped", "not_run"]
+    },
+    "reason": {"type": "string", "minLength": 1},
+    "started_utc": {"type": "string", "format": "date-time"},
+    "ended_utc": {"type": "string", "format": "date-time"},
+    "http_status": {"type": ["integer", "null"], "minimum": 0},
+    "finish_reason": {"type": ["string", "null"]},
+    "prompt_tokens": {"type": ["integer", "null"], "minimum": 0},
+    "generated_tokens": {"type": ["integer", "null"], "minimum": 0},
+    "token_source": {"type": ["string", "null"]},
+    "metrics": {"type": "object"},
+    "artifacts": {"type": "object"},
+    "error_class": {"type": ["string", "null"]}
+  }
+}

@@ -1,0 +1,2 @@
+# Pinned dependency lock for Aider Refactoring Benchmark evaluator environment
+# Evaluator utilizes standard library AST modules; no external package dependencies required.

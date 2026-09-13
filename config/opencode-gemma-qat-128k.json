@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "pinnacles/gemma-4-31b-qat",
+  "small_model": "pinnacles/gemma-4-31b-qat",
+  "enabled_providers": ["pinnacles"],
+  "share": "disabled",
+  "autoupdate": false,
+  "provider": {
+    "pinnacles": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pinnacles Gemma QAT (Dual GPU)",
+      "options": {"baseURL": "http://127.0.0.1:8000/v1"},
+      "models": {
+        "gemma-4-31b-qat": {
+          "name": "Gemma 4 31B IT QAT (128K Multi-GPU)",
+          "limit": {"context": 131072, "output": 8192}
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "task": "allow"
+  }
+}

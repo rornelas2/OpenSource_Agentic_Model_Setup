@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "swe-verified",
+  "status": "candidate",
+  "agent": {
+    "name": "opencode",
+    "version": "1.18.30",
+    "delegation": false,
+    "compaction": "disabled-until-pilot-validation"
+  },
+  "prompt": {
+    "visible_fields": ["problem_statement"],
+    "hidden_fields": ["patch", "test_patch", "FAIL_TO_PASS", "PASS_TO_PASS"],
+    "instruction": "Resolve the issue in the current repository. Inspect the code, make the smallest correct change, and run relevant tests."
+  },
+  "extraction": {
+    "artifact": "git-diff-from-pinned-base-commit",
+    "include_empty_patch": true,
+    "prediction_fields": ["instance_id", "model_patch", "model_name_or_path"]
+  },
+  "sampling": {"temperature": 0, "top_p": 1, "max_output_tokens": 4096, "seed": 20260911},
+  "reasoning": "profile-native",
+  "limits": {
+    "context_tokens": 16384,
+    "attempts": 1,
+    "concurrency": 1,
+    "evaluator_cpus": 8,
+    "evaluator_memory_gib": 64,
+    "evaluator_pids": 4096,
+    "evaluator_network": "disabled"
+  },
+  "notes": [
+    "OpenCode runs inside the official task image with task delegation denied; no host home, credentials, repository, grader, or hidden tests are mounted.",
+    "The container must use an internal network with a narrowly owned endpoint relay; host networking and general internet access are rejected.",
+    "The recorded evaluator and dataset commits are currently incompatible because the dataset lacks image/eval-script metadata required by the evaluator.",
+    "Pilot must validate compaction and enforce aggregate request, tool, token, and wall-time limits before freezing."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "livecodebench",
+  "status": "candidate",
+  "agent": null,
+  "prompt": {
+    "visible_fields": ["question_content", "starter_code", "public_test_cases"],
+    "hidden_fields": ["private_test_cases", "metadata"],
+    "language": "python",
+    "instruction": "Return one complete Python solution. Do not use tools or execution feedback."
+  },
+  "extraction": {
+    "artifact": "last-python-or-generic-code-fence-or-full-response",
+    "samples_per_problem": 1,
+    "execution_feedback": false
+  },
+  "sampling": {"temperature": 0, "top_p": 1, "max_output_tokens": 8192, "seed": 20260911},
+  "reasoning": "profile-native",
+  "limits": {"context_tokens": 32768, "attempts": 1, "concurrency": 1},
+  "notes": ["The pinned upstream prompt and extraction behavior must be compared against this adapter during the pilot before freezing."]
+}

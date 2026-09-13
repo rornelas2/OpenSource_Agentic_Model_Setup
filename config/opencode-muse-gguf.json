@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "pinnacles/muse-glimmer-30b-dynamic",
+  "small_model": "pinnacles/muse-glimmer-30b-dynamic",
+  "enabled_providers": ["pinnacles"],
+  "share": "disabled",
+  "autoupdate": false,
+  "provider": {
+    "pinnacles": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pinnacles Muse GGUF",
+      "options": {"baseURL": "http://127.0.0.1:8000/v1"},
+      "models": {
+        "muse-glimmer-30b-dynamic": {
+          "name": "Muse Glimmer 30B Dynamic Q4 (32K)",
+          "limit": {"context": 32768, "output": 8192}
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "task": "allow"
+  }
+}

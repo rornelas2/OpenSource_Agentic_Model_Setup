@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "id": "swe-verified",
+  "protocol_status": "candidate",
+  "release": "SWE-bench Verified",
+  "source": {
+    "evaluator_repository": "SWE-bench/SWE-bench",
+    "evaluator_revision": "02e7a74ffd0b707aab73d203fe87bdc7c76afc8e",
+    "dataset_repository": "princeton-nlp/SWE-bench_Verified",
+    "dataset_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+    "split": "test"
+  },
+  "task_manifest": {
+    "path": "benchmarks/suites/swe-verified/tasks.jsonl",
+    "sha256": "b2f761cf1dd51463fd18e33e431b4b1f80f8d1f3f2872d34aa14821e16beb059",
+    "expected_count": 500
+  },
+  "pilot_task_ids": [
+    "pylint-dev__pylint-6386",
+    "scikit-learn__scikit-learn-26323",
+    "sympy__sympy-17630",
+    "sphinx-doc__sphinx-8593",
+    "pytest-dev__pytest-5840"
+  ],
+  "protocol": {
+    "path": "benchmarks/suites/swe-verified/protocol.json",
+    "sha256": "b3024d2fd66efee8a34c574652c4cecbc4dabc2f2c3387f00bea4d327cd02b1b"
+  },
+  "execution": {
+    "adapter": "benchmarks/adapters/swe_verified.py",
+    "requires_code_execution": true,
+    "requires_container": true,
+    "primary_concurrency": 1
+  },
+  "budget": {
+    "attempts": 1,
+    "request_timeout_seconds": 1200,
+    "max_model_requests": 100,
+    "max_tool_events": 200,
+    "max_generated_tokens": 131072,
+    "max_output_tokens": 4096,
+    "context_tokens": 16384
+  },
+  "scoring": {"metric": "resolved", "unit": "fraction", "denominator": "scheduled"}
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "pinnacles/nemotron-3.5-lightning",
+  "small_model": "pinnacles/nemotron-3.5-lightning",
+  "enabled_providers": ["pinnacles"],
+  "share": "disabled",
+  "autoupdate": false,
+  "provider": {
+    "pinnacles": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pinnacles Nemotron Lightning",
+      "options": {"baseURL": "http://127.0.0.1:8000/v1"},
+      "models": {
+        "nemotron-3.5-lightning": {
+          "name": "NVIDIA Nemotron 3.5 Lightning (A100/L40S)",
+          "limit": {"context": 32768, "output": 8192}
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "task": "allow"
+  }
+}

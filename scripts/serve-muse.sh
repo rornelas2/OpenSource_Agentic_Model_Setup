@@ -7,7 +7,15 @@ if [[ -z ${SLURM_JOB_ID:-} ]]; then
 fi
 root="/data/${USER:?}/pinnacles-agents"
 scratch="/scratch/$USER/pinnacles-agents"
-model="$root/models/Muse-Glimmer-30B"
+if [[ -n ${MUSE_MODEL_DIR:-} ]]; then
+  model="$MUSE_MODEL_DIR"
+elif [[ -f "$root/models/Muse-Glimmer-30B/.pinnacles-revision" ]]; then
+  model="$root/models/Muse-Glimmer-30B"
+elif [[ -f "/scratch/$USER/pinnacles-agents/models/Muse-Glimmer-30B/.pinnacles-revision" ]]; then
+  model="/scratch/$USER/pinnacles-agents/models/Muse-Glimmer-30B"
+else
+  model="$root/models/Muse-Glimmer-30B"
+fi
 if [[ ! -f $model/.pinnacles-revision ]] || \
    [[ $(cat "$model/.pinnacles-revision") != a4e59da52a7bc87ae7251dd5545c0dd437c44b68 ]]; then
   echo 'Complete scripts/download-muse.sh before starting the server.' >&2
@@ -24,7 +32,7 @@ exec "$root/envs/muse-vllm/bin/vllm" serve "$model" \
   --served-model-name muse-glimmer-30b \
   --host 127.0.0.1 --port 8000 \
   --dtype bfloat16 --max-model-len 32768 --max-num-seqs 1 \
-  --gpu-memory-utilization 0.85 \
+  --gpu-memory-utilization "${MUSE_GPU_UTIL:-0.88}" \
   --enable-auto-tool-choice --tool-call-parser muse_glimmer --reasoning-parser muse_glimmer \
   --default-chat-template-kwargs '{"reasoning_strength":"high"}' \
   --limit-mm-per-prompt '{"image":0,"video":0}'

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rornelas2/OpenSource_Agentic_Model_Setup/benchmarks/schemas/task.schema.json",
+  "title": "Frozen task identity record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "input_sha256", "grader_sha256", "stratum"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "grader_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stratum": {"type": "string", "minLength": 1}
+  }
+}

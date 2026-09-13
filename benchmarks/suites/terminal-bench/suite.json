@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "id": "terminal-bench",
+  "protocol_status": "candidate",
+  "release": "Terminal-Bench 2.0",
+  "source": {
+    "evaluator_repository": "harbor-framework/harbor",
+    "evaluator_revision": "4797595c3858481285d0ea138580e35111cea0a1",
+    "dataset_repository": "harbor-framework/terminal-bench-2",
+    "dataset_revision": "2fd12b88aafdd04a52c298e3940bcb189f9766d6",
+    "split": "all"
+  },
+  "task_manifest": {
+    "path": "benchmarks/suites/terminal-bench/tasks.jsonl",
+    "sha256": "e905c8ca1c4768066d01c7cf1a6e15836d69f67cc4f77d0703e7edbca90695e5",
+    "expected_count": 89
+  },
+  "pilot_task_ids": [
+    "cancel-async-tasks",
+    "dna-assembly",
+    "fix-code-vulnerability",
+    "qemu-alpine-ssh",
+    "raman-fitting"
+  ],
+  "protocol": {
+    "path": "benchmarks/suites/terminal-bench/protocol.json",
+    "sha256": "1570bc09fe40b6cfa308f3aea8dba5786161a97097b1ce3d2021d243c4b4754a"
+  },
+  "execution": {
+    "adapter": "benchmarks/adapters/terminal_bench.py",
+    "requires_code_execution": true,
+    "requires_container": true,
+    "primary_concurrency": 1
+  },
+  "budget": {
+    "attempts": 1,
+    "request_timeout_seconds": 3600,
+    "max_model_requests": 100,
+    "max_tool_events": 200,
+    "max_generated_tokens": 131072,
+    "max_output_tokens": 4096,
+    "context_tokens": 16384
+  },
+  "scoring": {"metric": "native_reward", "unit": "fraction", "denominator": "scheduled"}
+}

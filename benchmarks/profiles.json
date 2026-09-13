@@ -1,0 +1,257 @@
+{
+  "schema_version": "1.0",
+  "opencode_version": "1.18.30",
+  "opencode_sha256": "87bd160e053af86b5b409daabf71f8dc05bbc3a2a3a5f563f36011cdf706a999",
+  "profiles": [
+    {
+      "id": "gemma-bf16-a100",
+      "model": {
+        "repository": "google/gemma-4-31B-it",
+        "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "weight_format": "bf16",
+        "weight_bytes": 62546338248
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "gemma4-31b"},
+      "deployment": {
+        "gpu": "a100",
+        "partition": "dept.appliedmath",
+        "gres": "gpu:a100:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "off"
+      },
+      "files": {
+        "serve": "scripts/serve-gemma.sh",
+        "supervisor": null,
+        "provider": "config/opencode-gemma.json",
+        "pins": null
+      },
+      "pin_variables": null,
+      "server_pid_env": "BENCHMARK_SERVER_PID"
+    },
+    {
+      "id": "muse-bf16-a100",
+      "model": {
+        "repository": "meta-models/Muse-Glimmer-30B",
+        "revision": "a4e59da52a7bc87ae7251dd5545c0dd437c44b68",
+        "weight_format": "bf16",
+        "weight_bytes": 59553435272
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "muse-glimmer-30b"},
+      "deployment": {
+        "gpu": "a100",
+        "partition": "dept.appliedmath",
+        "gres": "gpu:a100:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "high"
+      },
+      "files": {
+        "serve": "scripts/serve-muse.sh",
+        "supervisor": null,
+        "provider": "config/opencode-muse.json",
+        "pins": null
+      },
+      "pin_variables": null,
+      "server_pid_env": "BENCHMARK_SERVER_PID"
+    },
+    {
+      "id": "gemma-bf16-h200",
+      "model": {
+        "repository": "google/gemma-4-31B-it",
+        "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "weight_format": "bf16",
+        "weight_bytes": 62546338248
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "gemma4-31b"},
+      "deployment": {
+        "gpu": "nvidia_h200_nvl",
+        "partition": "cenvalarc.gpu",
+        "gres": "gpu:nvidia_h200_nvl:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "off"
+      },
+      "files": {
+        "serve": "scripts/serve-gemma.sh",
+        "supervisor": null,
+        "provider": "config/opencode-gemma.json",
+        "pins": null
+      },
+      "pin_variables": null,
+      "server_pid_env": "BENCHMARK_SERVER_PID"
+    },
+    {
+      "id": "muse-bf16-h200",
+      "model": {
+        "repository": "meta-models/Muse-Glimmer-30B",
+        "revision": "a4e59da52a7bc87ae7251dd5545c0dd437c44b68",
+        "weight_format": "bf16",
+        "weight_bytes": 59553435272
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "muse-glimmer-30b"},
+      "deployment": {
+        "gpu": "nvidia_h200_nvl",
+        "partition": "cenvalarc.gpu",
+        "gres": "gpu:nvidia_h200_nvl:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "high"
+      },
+      "files": {
+        "serve": "scripts/serve-muse.sh",
+        "supervisor": null,
+        "provider": "config/opencode-muse.json",
+        "pins": null
+      },
+      "pin_variables": null,
+      "server_pid_env": "BENCHMARK_SERVER_PID"
+    },
+    {
+      "id": "super-nvfp4-h200",
+      "model": {
+        "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+        "revision": "ff433f5493e25d631c9f12b5d55c674229923d02",
+        "weight_format": "nvfp4",
+        "weight_bytes": 80317948856
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "nemotron-3-super"},
+      "deployment": {
+        "gpu": "nvidia_h200_nvl",
+        "partition": "cenvalarc.gpu",
+        "gres": "gpu:nvidia_h200_nvl:1",
+        "system_ram_gib": 192,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "on"
+      },
+      "files": {
+        "serve": "scripts/serve-nemotron.sh",
+        "supervisor": null,
+        "provider": "config/opencode-nemotron.json",
+        "pins": null
+      },
+      "pin_variables": null,
+      "server_pid_env": "BENCHMARK_SERVER_PID"
+    },
+    {
+      "id": "muse-dynamic-a100",
+      "model": {
+        "repository": "meta-models/Muse-Glimmer-30B-GGUF",
+        "revision": "70bf1b61ac09f91b24d39038091b41c582bc5d7a",
+        "weight_format": "gguf-dynamic-q4_k_xl",
+        "weight_bytes": 19653960832
+      },
+      "runtime": {"kind": "llama.cpp", "revision": "f8def7fe168bab245fbf15d3f18b26dbb1ef73c8"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "muse-glimmer-30b-dynamic"},
+      "deployment": {
+        "gpu": "a100",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "high"
+      },
+      "files": {
+        "serve": "scripts/serve-muse-gguf.sh",
+        "supervisor": "scripts/run-muse-gguf.py",
+        "provider": "config/opencode-muse-gguf.json",
+        "pins": "env/muse-gguf-pins.sh"
+      },
+      "pin_variables": {
+        "repository": "MUSE_GGUF_REPO",
+        "revision": "MUSE_GGUF_REVISION",
+        "weight_bytes": "MUSE_GGUF_BYTES",
+        "model_alias": "MUSE_ALIAS",
+        "runtime_revision": "MUSE_LLAMA_COMMIT"
+      },
+      "server_pid_env": "MUSE_SERVER_PID"
+    },
+    {
+      "id": "gemma-qat-a100",
+      "model": {
+        "repository": "google/gemma-4-31B-it-qat-w4a16-ct",
+        "revision": "52f3f65bc7a02d555763bc923bd1d9094898219d",
+        "weight_format": "int4-w4a16-qat",
+        "weight_bytes": 23265352448
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "gemma-4-31b-qat"},
+      "deployment": {
+        "gpu": "a100",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "off"
+      },
+      "files": {
+        "serve": "scripts/serve-gemma-qat.sh",
+        "supervisor": "scripts/run-gemma-qat.py",
+        "provider": "config/opencode-gemma-qat.json",
+        "pins": "env/gemma-qat-pins.sh"
+      },
+      "pin_variables": {
+        "repository": "GEMMA_QAT_REPO",
+        "revision": "GEMMA_QAT_REVISION",
+        "weight_bytes": "GEMMA_QAT_BYTES",
+        "model_alias": "GEMMA_QAT_ALIAS",
+        "runtime_revision": null
+      },
+      "server_pid_env": "GEMMA_SERVER_PID"
+    },
+    {
+      "id": "lightning-nvfp4-a100",
+      "model": {
+        "repository": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+        "revision": "bee7596271d1495f6992ae224aefde4410e816b8",
+        "weight_format": "nvfp4-mixed",
+        "weight_bytes": 21561882284
+      },
+      "runtime": {"kind": "vllm", "revision": "0.29.0"},
+      "endpoint": {"base_url": "http://127.0.0.1:8000/v1", "model_alias": "nemotron-3.5-lightning"},
+      "deployment": {
+        "gpu": "a100",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "system_ram_gib": 128,
+        "context_tokens": 32768,
+        "output_tokens": 8192,
+        "sequences": 1,
+        "reasoning": "on"
+      },
+      "files": {
+        "serve": "scripts/serve-nemotron-lightning.sh",
+        "supervisor": "scripts/run-nemotron-lightning.py",
+        "provider": "config/opencode-nemotron-lightning.json",
+        "pins": "env/nemotron-lightning-pins.sh"
+      },
+      "pin_variables": {
+        "repository": "NEMOTRON_LIGHTNING_REPO",
+        "revision": "NEMOTRON_LIGHTNING_REVISION",
+        "weight_bytes": "NEMOTRON_LIGHTNING_BYTES",
+        "model_alias": "NEMOTRON_LIGHTNING_ALIAS",
+        "runtime_revision": null
+      },
+      "server_pid_env": "NEMOTRON_SERVER_PID"
+    }
+  ]
+}

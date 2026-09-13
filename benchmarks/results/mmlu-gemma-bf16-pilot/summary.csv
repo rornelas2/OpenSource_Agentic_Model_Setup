@@ -1,0 +1,2 @@
+profile_id,suite_id,pilot,scheduled,completed,coverage,pass,fail,timeout,cancelled,infra_error,skipped,not_run,pass_rate,ci95_lower,ci95_upper,mean_reward,median_latency_s,mean_generated_tokens
+gemma-bf16-a100,mmlu-pro,True,28,28,1.0,23,5,0,0,0,0,0,0.8214,0.6441,0.9212,0.8214,8.283,255.1

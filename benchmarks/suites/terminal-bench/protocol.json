@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "terminal-bench",
+  "status": "candidate",
+  "agent": {
+    "name": "opencode-installed-agent",
+    "version": "1.18.30",
+    "delegation": false,
+    "compaction": "disabled-until-pilot-validation"
+  },
+  "prompt": {
+    "visible_fields": ["instruction.md", "task-environment"],
+    "hidden_fields": ["solution", "tests"],
+    "instruction": "Use the terminal to complete the task in the provided environment."
+  },
+  "extraction": {
+    "artifact": "harbor-verifier-result",
+    "preserve_native_reward": true,
+    "oracle_and_noop_required": true
+  },
+  "sampling": {"temperature": 0, "top_p": 1, "max_output_tokens": 4096, "seed": 20260911},
+  "reasoning": "profile-native",
+  "limits": {"context_tokens": 16384, "attempts": 1, "concurrency": 1},
+  "notes": ["Task-specific Harbor timeouts remain authoritative and must be resolved before blocking tasks into Slurm jobs."]
+}
