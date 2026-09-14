@@ -1633,6 +1633,25 @@ checks `/v1/models` before launching and lowers its context limit if the server
 advertises a smaller one. It does not start a server or reserve GPUs.
 The current directory is the working project; it may be outside the tutorial.
 
+The launcher also supplies a local model catalog: `/model` lists only the
+selected profile's model, marked as current. You do not need to select it again.
+Use `/status` to inspect the active model. A `default` label is not a switch to
+an OpenAI model; reasoning for Muse is configured by the serving script.
+
+To check the endpoint and the catalog loaded by Codex without sending a prompt:
+
+```bash
+python3 "$TUTORIAL_DIR/scripts/launch-codex.py" --check muse-gguf-128k
+```
+
+The check reports the model ID, local provider, catalog, and isolated state
+directory. Asking “who are you?” is not a configuration check: a model can
+mistakenly quote `~/.codex/config.toml`, which belongs to your ordinary Codex
+setup. The launcher's invocation settings take precedence for this session.
+Always start this route through the launcher; typing bare `codex` uses your
+ordinary setup. After updating the launcher, exit the old session and relaunch
+to load the corrected catalog.
+
 Codex configuration and sessions use
 `/data/$USER/pinnacles-agents/codex/PROFILE`, separate from `~/.codex` and
 OpenCode. Defaults are passed for this invocation rather than written into
@@ -1661,7 +1680,8 @@ The model's Python environment does not supply packages to Codex tool commands.
 | `Codex is not installed` | Run the separate CPU installation step above. Existing model setup scripts install OpenCode, not Codex. |
 | `Run inside the model's Slurm compute shell` | Return to the active compute allocation and source the lesson's activation script. |
 | Connection refused or model not advertised | Check that the server is ready on this node and that the profile and port match. The launcher does not silently switch models. |
-| `Model metadata ... not found` | Codex uses fallback metadata for these custom model names. Context is supplied explicitly; this warning occurred in the successful Muse repair. |
+| Muse missing from `/model`, or `Model metadata ... not found` | Update the checkout and restart through the launcher. Earlier launcher versions omitted the custom catalog; the current launcher supplies it. Use `--check` to verify. |
+| Assistant claims it is GPT or quotes `~/.codex/config.toml` | Check `/status` and the launcher output. Generated identity claims are not runtime evidence. The local route uses its separate state directory and `pinnacles` provider. |
 | `/responses` error, unsupported tool, or no edits | The exact server/model combination needs a Codex tool round-trip check. Use its tested OpenCode route while investigating. |
 | Wrong Python or missing project package | Use the project's explicit interpreter or Conda command in `AGENTS.md`. |
 

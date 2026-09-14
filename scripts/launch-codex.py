@@ -7,11 +7,13 @@ profile/model processing is linear in the returned catalog size.
 """
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -80,7 +82,57 @@ def inspect_endpoint(url, model, context):
     return context
 
 
-def codex_command(binary, model, context, url, extra):
+def model_catalog(model, context):
+    """An explicit local-model catalog; never inherit hosted-model capabilities."""
+    return {"models": [{
+        "slug": model,
+        "display_name": model + " (Pinnacles)",
+        "description": "Local GPU model through the Pinnacles Responses endpoint",
+        "supported_reasoning_levels": [],
+        "shell_type": "default",
+        "visibility": "list",
+        "supported_in_api": True,
+        "priority": 0,
+        "availability_nux": None,
+        "upgrade": None,
+        "base_instructions": (
+            "You are a coding assistant running through Codex with local model ID "
+            + model + ". The active provider is pinnacles, a local GPU model server. "
+            "These session settings take precedence over the ordinary ~/.codex/config.toml. "
+            "Do not infer your model identity from unrelated configuration files or documentation. "
+            "Inspect relevant project instructions and files, make focused changes, and run "
+            "appropriate tests. Preserve unrelated user work. Report observed results honestly. "
+            "Use the provided tools to act on coding requests; do not merely describe edits."
+        ),
+        "support_verbosity": False,
+        "default_verbosity": None,
+        "apply_patch_tool_type": None,
+        "truncation_policy": {"mode": "tokens", "limit": 10000},
+        "context_window": context,
+        "max_context_window": context,
+        "experimental_supported_tools": [],
+        "input_modalities": ["text"],
+        "supports_reasoning_summary_parameter": False,
+        "use_responses_lite": False,
+    }]}
+
+
+def write_catalog(state, model, context):
+    raw = (json.dumps(model_catalog(model, context), indent=2) + "\n").encode()
+    # Content-addressed paths avoid races between sessions with different limits.
+    path = state / ("models-" + hashlib.sha256(raw).hexdigest()[:16] + ".json")
+    fd, temporary = tempfile.mkstemp(prefix=".models-", dir=state)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(raw)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return path
+
+
+def codex_command(binary, model, context, url, extra, catalog=None):
     settings = {
         "model": model,
         "model_provider": "pinnacles",
@@ -97,6 +149,8 @@ def codex_command(binary, model, context, url, extra):
         "model_providers.pinnacles.stream_max_retries": 0,
         "model_providers.pinnacles.stream_idle_timeout_ms": 180000,
     }
+    if catalog is not None:
+        settings["model_catalog_json"] = str(catalog)
     command = [str(binary)]
     for key, value in settings.items():
         command.extend(["-c", key + "=" + json.dumps(value)])
@@ -106,6 +160,7 @@ def codex_command(binary, model, context, url, extra):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List shared model profiles and exit")
+    parser.add_argument("--check", action="store_true", help="Verify endpoint and Codex catalog without starting a chat")
     parser.add_argument("--base-url", help="Local endpoint override, e.g. http://127.0.0.1:8001/v1")
     parser.add_argument("profile", nargs="?", help="Profile suffix, e.g. muse-gguf-128k")
     parser.add_argument("codex_args", nargs=argparse.REMAINDER, help="Codex arguments after --")
@@ -136,12 +191,24 @@ def main():
     if version != VERSION:
         raise ValueError("Expected " + VERSION + "; reinstall with scripts/setup-codex.sh.")
     context = inspect_endpoint(url, model, context)
+    catalog = write_catalog(state, model, context)
     extra = args.codex_args
     if extra[:1] == ["--"]:
         extra = extra[1:]
     print(f"Codex → {model} at {url}; context {context}; project {Path.cwd()}",
           file=sys.stderr, flush=True)
-    os.execve(binary, codex_command(binary, model, context, url, extra), env)
+    if args.check:
+        result = subprocess.run(
+            codex_command(binary, model, context, url, ["debug", "models"], catalog),
+            env=env, capture_output=True, text=True, check=True, timeout=15)
+        models = json.loads(result.stdout)["models"]
+        if [item["slug"] for item in models] != [model]:
+            raise ValueError("Codex did not load the expected single-model catalog.")
+        print(f"Verified: provider=pinnacles; model={model}; picker contains only this model.\n"
+              f"Codex state: {state}\nModel catalog: {catalog}\n"
+              "Endpoint identity and catalog checked; no inference request sent.")
+        return
+    os.execve(binary, codex_command(binary, model, context, url, extra, catalog), env)
 
 
 if __name__ == "__main__":

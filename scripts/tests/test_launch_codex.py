@@ -4,6 +4,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import threading
+import tempfile
 import unittest
 
 
@@ -90,6 +91,32 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(command[-2:], extra)
         self.assertEqual(command[0], "/a path/codex")
         self.assertIn('model_providers.pinnacles.wire_api="responses"', command)
+
+    def test_catalog_contains_only_selected_local_model(self):
+        catalog = launcher.model_catalog("muse-glimmer-30b-dynamic", 32768)
+        self.assertEqual([m["slug"] for m in catalog["models"]], ["muse-glimmer-30b-dynamic"])
+        model = catalog["models"][0]
+        self.assertEqual(model["visibility"], "list")
+        self.assertEqual(model["context_window"], 32768)
+        self.assertFalse(model["use_responses_lite"])
+        self.assertEqual(model["supported_reasoning_levels"], [])
+        self.assertNotIn("gpt-", model["base_instructions"])
+
+    def test_catalog_files_do_not_overwrite_other_session_limits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            first = launcher.write_catalog(state, "local", 32768)
+            second = launcher.write_catalog(state, "local", 131072)
+            self.assertNotEqual(first, second)
+            self.assertEqual(json.loads(first.read_text())["models"][0]["context_window"], 32768)
+            self.assertEqual(launcher.write_catalog(state, "local", 32768), first)
+            self.assertEqual(len(list(state.iterdir())), 2)
+
+    def test_catalog_override_passed_to_codex(self):
+        command = launcher.codex_command("codex", "local", 32768, self.base + "/v1",
+                                         ["debug", "models"], Path("/a path/models.json"))
+        self.assertIn('model_catalog_json="/a path/models.json"', command)
+        self.assertEqual(command[-2:], ["debug", "models"])
 
 
 if __name__ == "__main__":
