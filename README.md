@@ -2,7 +2,7 @@
 
 A tutorial for students participating in Lawrence Livermore National Laboratory's Data Science
 Challenge. Learn how to run an open-weight model on Pinnacles GPUs, serve it
-through an API, and use **OpenCode** to read code, edit files, and run tests.
+through an API, and use **OpenCode or Codex CLI** to read code, edit files, and run tests.
 
 You need a regular sponsored Pinnacles account and basic familiarity with a
 terminal. This tutorial uses the public `gpu` and `cenvalarc.gpu` partitions.
@@ -10,24 +10,27 @@ terminal. This tutorial uses the public `gpu` and `cenvalarc.gpu` partitions.
 ## What you will build
 
 ```text
-You → OpenCode → model server (vLLM or llama.cpp) → GPU model
-         ↑                 │
-         └── tool request ─┘
-         │
-         └── read files, edit code, run tests → send results back to model
+You → OpenCode or Codex CLI → model server (vLLM or llama.cpp) → GPU model
+              │                     │
+              └── tools and results ┘
+              │
+              └── read files, edit code, run tests
 ```
 
 The **model** proposes actions. The **server** loads its weights onto GPUs and
-provides an HTTP endpoint. **OpenCode** is the coding harness: it manages the
+provides an HTTP endpoint. **OpenCode or Codex CLI** is the coding harness: it manages the
 conversation, supplies tools, executes approved actions, and returns their
 results to the model. **Slurm** allocates the compute node where the server runs;
 the endpoint lasts only as long as that job.
 
 OpenCode supports local servers through an OpenAI-compatible API. Here,
 “OpenAI-compatible” describes the request format; inference runs on Pinnacles.
-Files and shell commands are handled on the machine running OpenCode. A laptop
+Files and shell commands are handled on the machine running the harness. A laptop
 client therefore edits laptop files unless its tools are explicitly configured
 otherwise. See the [OpenCode provider documentation](https://opencode.ai/docs/providers/).
+Codex uses the server’s Responses API; it still runs your selected open-weight
+model on Pinnacles. See [choosing Codex instead of OpenCode](#16-choose-codex-instead-of-opencode)
+for installation, launch commands, and the validation status of each profile.
 
 **Start here:** follow the Gemma steps below, then the
 [Meta lesson](#9-run-meta-muse-glimmer-through-opencode), the
@@ -96,19 +99,26 @@ OpenCode and the Gemma tool-call template with checksum verification. Wait for
 `Setup complete`. Run it once; you can rerun it to restore the pinned setup.
 
 The supplied versions are Python 3.11, vLLM 0.29.0, and OpenCode 1.18.30.
+Students choosing Codex additionally install the pinned Codex CLI 0.154.0
+using [Section 16](#16-choose-codex-instead-of-opencode); the model setup stays the same.
 The complete Python dependency list is in
 [`env/gemma-requirements.lock`](env/gemma-requirements.lock).
 The installation uses prebuilt packages and requires no `sudo` or Docker.
 
 ### Environment setup and future project requirements
 
-The setup above installs the **model-serving environment**. OpenCode also needs
+The setup above installs the **model-serving environment**. Either harness also needs
 an environment in which to run the code it edits. The introductory repair
 exercise uses Python's standard-library `unittest`, so it needs no additional
 project packages. A later data-science project may need its own dependencies. Keep that project's
 environment separate from the serving runtime so its package changes do not
 alter the tested model setup. The Muse GGUF lesson uses a compiled llama.cpp
 server instead of the Python/vLLM serving environment.
+
+Your project can live outside this tutorial directory and use its own venv,
+Conda environment, or another suitable environment manager. See
+[working in your own project](#working-in-your-own-project) for how the running
+model server, your chosen harness, and the project's environment fit together.
 
 **PyTorch is already included:** all three serving lock files pin
 `torch==2.13.0`, alongside `vllm==0.29.0` and `numpy==2.3.5`.
@@ -247,6 +257,10 @@ involved in this request.
 
 ## 7. Use Gemma as a coding agent through OpenCode
 
+**Harness choice:** the steps below use OpenCode. For Codex, see
+[Section 16](#16-choose-codex-instead-of-opencode), including the validation
+status of the `gemma` profile, before substituting the agent launch step.
+
 Start with the supplied exercise: a small function with a bug and four tests.
 Copy it into your own work directory so the original exercise stays reusable.
 Use a fresh directory name if `first-agent` already exists.
@@ -293,15 +307,80 @@ Success means all four tests pass, the function changed, and the test file is
 unchanged. `diff` returns exit status 1 when it finds the expected changes;
 `cmp` prints nothing when the test files match.
 
-For your own project, start OpenCode from that project's directory and copy the
-same provider configuration there, merging it with any existing `opencode.json`.
-The model ID and context limits in the configuration must match your server.
+### Working in your own project
+
+**Your project does not need to be inside `OpenSource_Agentic_Model_Setup`.**
+The tutorial directory supplies the setup scripts and model configurations.
+Both harnesses work in the project directory from which you launch them. The exercise
+above already uses a separate work directory.
+
+After starting the model server using your chosen lesson, leave it running and
+change into your own project directory in the activated compute shell. Copy the
+matching configuration from the tutorial's `config/` directory into your project
+as `opencode.json`, merging it with any existing configuration instead of
+overwriting it. The model ID, endpoint, and context limits must match the server.
+Then run `opencode` from your project directory.
+
+On later visits, once that configuration exists, launching OpenCode means
+changing into the project and typing `opencode`, provided the tools are on
+`PATH` and the matching server is running. The activation scripts set up the
+current shell; a new shell needs its own activation. The supplied endpoint is
+`127.0.0.1:8000`, so this workflow runs OpenCode on the same compute node as the
+server, inside the appropriate allocation.
+
+For Codex, run the [shared launcher](#16-choose-codex-instead-of-opencode) from
+your project directory with the matching profile; no `opencode.json` copy is
+needed. Its session state is separate from your normal Codex configuration.
+
 The [OpenCode documentation](https://opencode.ai/docs/providers/) explains custom
 providers; [permissions](https://opencode.ai/docs/permissions/) control tool use.
 
+### Using your project's own environment
+
+**Yes, the agent can use a project's own environment and install project
+dependencies there while the model server stays running.** That environment
+can be a Python venv, a Conda environment, or another suitable choice for the
+project. It does not have to be stored inside the project directory: a venv
+often lives in `.venv`, while a Conda environment may be stored elsewhere.
+
+The relationship is:
+
+| Component | What its environment is for |
+|---|---|
+| Running model server | Serving the model with the selected runtime and pinned dependencies |
+| OpenCode or Codex | Connecting to the server and executing file and shell tools in your project |
+| Project code and tests | Using the project's own interpreter and packages, such as NumPy and Matplotlib |
+
+The intended sequence is to activate the serving tools, launch the model server
+using the tutorial, change into the project, select its environment, and launch
+your chosen harness. The project environment can be created beforehand or set up by the
+agent through its shell tools, subject to your configured permissions. Tell the
+agent which environment to use and where dependencies should be installed.
+
+These are independent environments, not nested layers of Python packages.
+Selecting a project environment changes which interpreter subsequent project
+commands use; it does not change the already-running server's interpreter or
+unload its model. Install project dependencies into the project environment,
+and record them in the project's dependency files. Packages in the serving
+environment are not automatically available in the project environment.
+
+For reliable agent execution, record the environment and run/test commands in
+your project's `AGENTS.md`. For example, specify `.venv/bin/python` for a venv,
+or identify the intended Conda environment and how commands should select it.
+Activation in one temporary agent shell command may not persist into the next,
+so each command must use the intended environment. When activating before
+launching either harness, select the project environment **after** sourcing the model
+activation script, which can put the serving Python first on `PATH`.
+
+This explains how to extend the setup; a particular project's venv or Conda
+installation still needs validation on Pinnacles. Separate environments isolate
+packages, but still share the allocation's CPU, RAM, and GPU resources. See the
+[environment guide](env/README.md#12-which-python-will-opencode-use-for-my-project)
+for interpreter checks and project dependency management.
+
 ## 8. Stop the server and release your GPU
 
-After exiting OpenCode, inside the **compute shell**:
+After exiting your chosen harness, inside the **compute shell**:
 
 ```bash
 kill "$MODEL_SERVER_PID"
@@ -334,6 +413,10 @@ unavailable.
 | Request exceeds context limit | Begin a new session or reduce attached files/tool output; input and output share the context budget. |
 
 ## 9. Run Meta Muse Glimmer through OpenCode
+
+**Harness choice:** the steps below use OpenCode. For Codex, see
+[Section 16](#16-choose-codex-instead-of-opencode), including the validation
+status of the `muse` profile, before substituting the agent launch step.
 
 After completing Gemma, repeat the workflow with **Muse Glimmer 30B in BF16 on
 one H200**. Use 8 CPU cores, 128 GB system RAM, and a 131,072-token context limit.
@@ -475,6 +558,10 @@ exit
 On the login node, use `squeue --me` to confirm the allocation has ended.
 
 ## 10. Run NVIDIA Nemotron 3 Super through OpenCode
+
+**Harness choice:** the steps below use OpenCode. For Codex, see
+[Section 16](#16-choose-codex-instead-of-opencode), including the validation
+status of the `nemotron` profile, before substituting the agent launch step.
 
 After Gemma and Meta, repeat the workflow with the official
 **NVIDIA Nemotron 3 Super 120B-A12B NVFP4 checkpoint on one H200**. Use 8 CPU
@@ -618,6 +705,10 @@ exit
 On the login node, use `squeue --me` to confirm the allocation has ended.
 
 ## 11. Run quantized Meta Muse Glimmer on an A100 GPU
+
+**Harness choice:** the steps below use OpenCode. For Codex, see
+[Section 16](#16-choose-codex-instead-of-opencode), including the validation
+status of the `muse-gguf` profile, before substituting the agent launch step.
 
 When H200s are busy or when working under standard GPU queues, you can run the
 official **quantized Meta Muse Glimmer 30B checkpoint on one A100 40 GB GPU**
@@ -785,6 +876,10 @@ On the login node, use `squeue --me` to confirm the allocation has ended.
 | `Connection refused` | Wait ~5–10 seconds for the llama-server HTTP listener to initialize; inspect `$MODEL_SERVER_LOG`. |
 
 ## 12. Run Google Gemma 4 31B IT QAT on an A100 or L40S GPU
+
+**Harness choice:** the steps below use OpenCode. For Codex, see
+[Section 16](#16-choose-codex-instead-of-opencode), including the validation
+status of the `gemma-qat` profile, before substituting the agent launch step.
 
 When H200s are busy or when working under standard GPU queues, you can also run
 the official **Google Gemma 4 31B IT QAT (INT4 W4A16) checkpoint on one A100 40 GB
@@ -964,6 +1059,10 @@ On the login node, use `squeue --me` to confirm the allocation has ended.
 
 ## 13. Run NVIDIA Nemotron 3.5 Lightning 30B NVFP4 on an A100 or L40S GPU
 
+**Harness choice:** the steps below use OpenCode. For Codex, see
+[Section 16](#16-choose-codex-instead-of-opencode), including the validation
+status of the `nemotron-lightning` profile, before substituting the agent launch step.
+
 This lesson shows how to run **NVIDIA Nemotron 3.5 Lightning 30B NVFP4** on a
 single **NVIDIA A100 (40 GB)** or **L40S (48 GB)** GPU. Nemotron 3.5 Lightning
 uses a hybrid Mixture-of-Experts (MoE) + Mamba architecture with 3.5B active
@@ -1142,6 +1241,10 @@ On the login node, use `squeue --me` to confirm the allocation has ended.
 | Cold startup latency (~4–6 minutes) | Nemotron Lightning warms up Mamba2 SSD Triton kernels and captures CUDA graphs on first start; monitor `$MODEL_SERVER_LOG` until `Application startup complete`. |
 
 ## 14. Scale context to 128K on multiple GPUs (dual A100 or L40S)
+
+**Harness choice:** Muse GGUF also has a validated Codex coding route; see
+[Section 16](#16-choose-codex-instead-of-opencode) and choose `muse-gguf-128k`.
+The `gemma-qat-128k` Codex configuration is available but not yet runtime-validated.
 
 Long coding sessions accumulate source files, tool output, and earlier answers.
 Splitting a model across GPUs can leave more memory for this conversation.
@@ -1445,6 +1548,127 @@ GPU memory, and OpenCode configuration so others can reproduce it.
 
 Tools execute where OpenCode runs. When finished, stop your server and release
 its Slurm allocation.
+
+## 16. Choose Codex instead of OpenCode
+
+The model server is independent of the coding harness. Keep the selected
+lesson's installation, download, allocation, activation, and server startup
+steps. Choose OpenCode or Codex when you reach the coding exercise; switching
+harnesses does not require restarting the model or downloading its weights again.
+
+### What has been validated
+
+On Pinnacles, **Codex CLI 0.154.0 with Muse GGUF served by llama.cpp at a
+configured 128K context limit** completed file reads, a Python implementation
+repair, a test run, and a final response through the Responses API. The repository
+launcher and pinned package were tested with the supplied repair exercise.
+This was a short coding task, not a full-window or multi-agent stress test.
+The existing OpenCode validation and benchmark results remain OpenCode results.
+
+The shared launcher recognizes every checked-in model profile. The table
+separates available configuration from completed Codex runtime validation:
+
+| Profile | Configured context | Codex validation |
+|---|---:|---|
+| `muse-gguf-128k` | 131,072 | Short coding repair validated with llama.cpp |
+| `muse-gguf` | 32,768 | Same model/API; separate 32K server deployment not retested with Codex |
+| `gemma` | 98,304 | Configuration available; vLLM/Codex tool round trip not yet validated |
+| `muse` | 131,072 | Configuration available; vLLM/Codex tool round trip not yet validated |
+| `gemma-qat` | 32,768 | Configuration available; vLLM/Codex tool round trip not yet validated |
+| `gemma-qat-128k` | 131,072 | Configuration available; vLLM/Codex tool round trip not yet validated |
+| `nemotron` | 32,768 | Configuration available; vLLM/Codex tool round trip not yet validated |
+| `nemotron-lightning` | 32,768 | Configuration available; vLLM/Codex tool round trip not yet validated |
+| `gemma-a100`, `muse-a100` | 32,768 | Historical A100 configurations; Codex not yet validated |
+
+For the unvalidated combinations, continue using the lesson's tested OpenCode
+route until the full read/edit/test interaction is checked. An OpenAI-compatible
+Chat Completions endpoint alone does not guarantee Codex Responses compatibility.
+
+### Install Codex once
+
+From the tutorial checkout on the **login node**, request a CPU allocation:
+
+```bash
+srun --partition=short --nodes=1 --ntasks=1 --cpus-per-task=2 \
+  --mem=4G --time=00:10:00 bash scripts/setup-codex.sh
+```
+
+The installer downloads the complete Linux x86-64 Codex 0.154.0 package from
+OpenAI's release, verifies its SHA-256, and installs it under
+`/data/$USER/pinnacles-agents/tools/codex-v0.154.0`. No npm, sudo, paid OpenAI
+account, or OpenAI API key is needed for this local-model route. Rerunning the
+installer checks the installed package. It does not change your usual Codex
+installation or login.
+
+### Launch either harness with the running Muse model
+
+After starting the **128K Muse GGUF server in Section 14**, stay in that
+activated compute shell. Enter your project directory. The examples below
+assume `TUTORIAL_DIR` still points to your clone, as established in the lesson.
+
+Choose **OpenCode**. If your project already has `opencode.json`, merge the
+provider settings instead of overwriting it with the copy command:
+
+```bash
+cp "$TUTORIAL_DIR/config/opencode-muse-gguf-128k.json" opencode.json
+opencode
+```
+
+Or choose **Codex** in the same project directory:
+
+```bash
+python3 "$TUTORIAL_DIR/scripts/launch-codex.py" muse-gguf-128k
+```
+
+Accept the workspace trust prompt if shown. Enter the exercise's repair prompt
+or your own coding task. Codex starts with workspace-write sandboxing and
+on-request approvals; it may edit project files and run permitted commands
+without asking for each action. These defaults differ from the OpenCode
+profiles, which ask for edits and shell commands. Review changes and run tests
+when either agent finishes. Exit Codex with `/quit` or Ctrl-C.
+
+The launcher uses the selected profile's model ID, endpoint, and context limit
+from `config/opencode-*.json`, so the two harnesses share those settings. It
+checks `/v1/models` before launching and lowers its context limit if the server
+advertises a smaller one. It does not start a server or reserve GPUs.
+The current directory is the working project; it may be outside the tutorial.
+
+Codex configuration and sessions use
+`/data/$USER/pinnacles-agents/codex/PROFILE`, separate from `~/.codex` and
+OpenCode. Defaults are passed for this invocation rather than written into
+project files. This also means your usual Codex login, plugins, and settings
+are not automatically carried into the tutorial sessions.
+
+List available profiles without connecting to a server:
+
+```bash
+python3 "$TUTORIAL_DIR/scripts/launch-codex.py" --list
+```
+
+For a server you deliberately started on another local port, pass
+`--base-url http://127.0.0.1:8001/v1` **before** the profile name. Both clients
+run on the same compute node as the server; keep its Slurm allocation alive.
+
+### Project environments and troubleshooting
+
+Both harnesses can use your project's venv or Conda environment. Select it
+after model activation and record explicit interpreter/test commands in
+`AGENTS.md`, as described in [the project environment section](#using-your-projects-own-environment).
+The model's Python environment does not supply packages to Codex tool commands.
+
+| Symptom | What to check |
+|---|---|
+| `Codex is not installed` | Run the separate CPU installation step above. Existing model setup scripts install OpenCode, not Codex. |
+| `Run inside the model's Slurm compute shell` | Return to the active compute allocation and source the lesson's activation script. |
+| Connection refused or model not advertised | Check that the server is ready on this node and that the profile and port match. The launcher does not silently switch models. |
+| `Model metadata ... not found` | Codex uses fallback metadata for these custom model names. Context is supplied explicitly; this warning occurred in the successful Muse repair. |
+| `/responses` error, unsupported tool, or no edits | The exact server/model combination needs a Codex tool round-trip check. Use its tested OpenCode route while investigating. |
+| Wrong Python or missing project package | Use the project's explicit interpreter or Conda command in `AGENTS.md`. |
+
+See the official [Codex CLI documentation](https://learn.chatgpt.com/docs/codex/cli)
+and [custom-provider configuration](https://learn.chatgpt.com/docs/config-file/config-advanced).
+The automated benchmark runner still uses its pinned OpenCode adapter; this
+addition provides a student-facing Codex launch route, not cross-harness benchmark results.
 
 ## Reference: GPUs, memory, and model selection
 

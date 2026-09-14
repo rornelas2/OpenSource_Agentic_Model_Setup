@@ -25,16 +25,22 @@ There are several cooperating parts:
 |---|---|---|
 | Cluster platform | Slurm jobs and system software | Sponsored account, permitted partition, Linux tools, campus modules, GPU driver on GPU nodes |
 | Model server | vLLM or llama.cpp, loading weights and answering requests | Its pinned runtime, checkpoint, sufficient RAM/VRAM, launch configuration |
-| OpenCode client | Conversation and file/shell tools | OpenCode executable, provider configuration, access to the endpoint |
-| Project execution | The Python programs and tests OpenCode runs | That project's interpreter and libraries |
+| OpenCode or Codex client | Conversation and file/shell tools | Selected harness executable, provider configuration, access to the endpoint |
+| Project execution | The Python programs and tests the harness runs | That project's interpreter and libraries |
 | Benchmark evaluation, when used | Dataset preparation and grading | Suite-specific requirements described in the [benchmark guide](../benchmarks/README.md) |
 
-**Why distinguish them?** An HTTP request connects OpenCode to the model;
+**Why distinguish them?** An HTTP request connects the harness to the model;
 it does not make the model server's Python packages available to every tool
 process. Conversely, adding a plotting library to a project does not require
 changing the software that serves the model. The small introductory exercise
 can use the serving environment's Python because it needs only the standard
 library. Larger projects should have their own environment.
+
+Codex is an optional separate installation; see [the harness choice guide](../README.md#16-choose-codex-instead-of-opencode).
+Its launcher reuses the model profiles and keeps Codex state under
+`/data/$USER/pinnacles-agents/codex/PROFILE`. Project interpreter and dependency
+guidance applies to both harnesses. The model setup scripts continue to install
+OpenCode, and existing OpenCode-specific paths below describe that route.
 
 ## 2. What must already exist before setup?
 
