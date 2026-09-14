@@ -26,7 +26,7 @@
       "files": {
         "serve": "scripts/serve-gemma.sh",
         "supervisor": null,
-        "provider": "config/opencode-gemma.json",
+        "provider": "config/opencode-gemma-a100.json",
         "pins": null
       },
       "pin_variables": null,
@@ -55,7 +55,7 @@
       "files": {
         "serve": "scripts/serve-muse.sh",
         "supervisor": null,
-        "provider": "config/opencode-muse.json",
+        "provider": "config/opencode-muse-a100.json",
         "pins": null
       },
       "pin_variables": null,
@@ -76,7 +76,7 @@
         "partition": "cenvalarc.gpu",
         "gres": "gpu:nvidia_h200_nvl:1",
         "system_ram_gib": 128,
-        "context_tokens": 32768,
+        "context_tokens": 98304,
         "output_tokens": 8192,
         "sequences": 1,
         "reasoning": "off"
@@ -105,7 +105,7 @@
         "partition": "cenvalarc.gpu",
         "gres": "gpu:nvidia_h200_nvl:1",
         "system_ram_gib": 128,
-        "context_tokens": 32768,
+        "context_tokens": 131072,
         "output_tokens": 8192,
         "sequences": 1,
         "reasoning": "high"

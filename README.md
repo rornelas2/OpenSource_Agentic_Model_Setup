@@ -1,6 +1,6 @@
 # Open-weight coding agents on UC Merced Pinnacles
 
-A tutorial for students in Lawrence Livermore National Laboratory's Data Science
+A tutorial for students participating in Lawrence Livermore National Laboratory's Data Science
 Challenge. Learn how to run an open-weight model on Pinnacles GPUs, serve it
 through an API, and use **OpenCode** to read code, edit files, and run tests.
 
@@ -40,6 +40,12 @@ otherwise. See the [OpenCode provider documentation](https://opencode.ai/docs/pr
 [reference section](#reference-gpus-memory-and-model-selection) explains GPU
 memory, storage, quantization, and benchmark results.
 
+**My recommendation:** use quantized Muse Glimmer on **two A100 GPUs** for
+coding on Pinnacles. In my experience, this allocation is easier to obtain
+than an H200 and offers a good balance of coding capability and GPU
+accessibility. Follow the
+[two-GPU setup in Section 14](#14-scale-context-to-128k-on-multiple-gpus-dual-a100-or-l40s).
+
 ## 1. Log in and open the tutorial
 
 On your **laptop**, connect to the campus VPN when off campus, then replace
@@ -66,14 +72,14 @@ explain access and appropriate use.
 ## 2. Install the Gemma and OpenCode tooling
 
 This exercise uses **Gemma 4 31B IT in BF16 on one H200**, with 8 CPU cores,
-128 GB system RAM, and a 32,768-token context limit. You do not need a paid
+128 GB system RAM, and a 98,304-token context limit. You do not need a paid
 model API account. Budget **90 GB free in data** and **30 GB free in scratch**
 for the checkpoint, environment, and installation/build caches.
 
 Validated on Pinnacles: model loading, chat, streaming,
 a tool-call round trip, and an OpenCode file repair with all four exercise tests
-passing. The 32,768-token limit is the configured ceiling; the exercise uses a
-shorter conversation and is not a full-context stress test.
+passing. The current configured ceiling is 98,304 tokens (96K); the exercise
+uses a shorter conversation and is not a full-context stress test.
 
 On the **login node**, from the tutorial directory:
 
@@ -93,6 +99,32 @@ The supplied versions are Python 3.11, vLLM 0.29.0, and OpenCode 1.18.30.
 The complete Python dependency list is in
 [`env/gemma-requirements.lock`](env/gemma-requirements.lock).
 The installation uses prebuilt packages and requires no `sudo` or Docker.
+
+### Environment setup and future project requirements
+
+The setup above installs the **model-serving environment**. OpenCode also needs
+an environment in which to run the code it edits. The introductory repair
+exercise uses Python's standard-library `unittest`, so it needs no additional
+project packages. A later data-science project may need its own dependencies. Keep that project's
+environment separate from the serving runtime so its package changes do not
+alter the tested model setup. The Muse GGUF lesson uses a compiled llama.cpp
+server instead of the Python/vLLM serving environment.
+
+**PyTorch is already included:** all three serving lock files pin
+`torch==2.13.0`, alongside `vllm==0.29.0` and `numpy==2.3.5`.
+
+
+Read the [detailed environment guide and questions](env/README.md) for:
+
+- Prerequisites, installation locations, and what each setup script installs.
+- Why Python 3.11, virtual environments, `uv`, and pinned dependencies are used.
+- How activation and OpenCode determine which Python executes project code.
+- Where future PyTorch and test dependencies belong, and how to
+  select, record, and validate them.
+- CUDA versus the GPU driver, storage, reproducibility, and troubleshooting.
+
+The guide distinguishes the existing tutorial setup from future project
+extensions that still need Pinnacles validation.
 
 ## 3. Download Gemma 4 31B
 
@@ -194,101 +226,6 @@ processes on that node can reach this unauthenticated tutorial endpoint.
 These launch scripts are for the individual exercise; a shared service needs
 authentication and tested concurrency limits.
 
-### Use OpenCode from another terminal
-
-You can keep vLLM in the compute allocation and run OpenCode from your laptop
-through an SSH tunnel. This is useful when you want OpenCode's tools to edit a
-local laptop checkout. The Slurm job and server must remain alive.
-Your laptop needs its own OpenCode installation; the setup script installed
-OpenCode only on Pinnacles. Use [version 1.18.30](https://github.com/anomalyco/opencode/releases/tag/v1.18.30)
-for the supplied configuration, selecting the release for your laptop's OS and CPU.
-SSH access and forwarding depend on cluster policy; the H200 inference tests
-do not establish that these optional routes work for every account.
-
-First, inside the compute shell, record the node name:
-
-```bash
-hostname
-```
-
-Suppose it prints `gnode028.cluster`. On your **laptop**, open a second
-terminal and run the following, replacing `UCM_USERNAME` and the example node:
-
-```bash
-ssh -J UCM_USERNAME@login.rc.ucmerced.edu \
-  -o ExitOnForwardFailure=yes -N -L 127.0.0.1:18000:127.0.0.1:8000 \
-  UCM_USERNAME@gnode028.cluster
-```
-
-Keep this SSH command running. It forwards your laptop's
-`127.0.0.1:18000` to port 8000 on the compute node. In a third **laptop**
-terminal, verify the tunnel:
-
-```bash
-curl --fail http://127.0.0.1:18000/health
-curl --fail http://127.0.0.1:18000/v1/models
-```
-
-If direct SSH to compute nodes is disabled but reverse forwarding is permitted,
-you can create a tunnel from the compute shell to a specific login node. In a
-separate **login-node terminal**, run `hostname -f`. Replace `LOGIN_NODE_HOST`
-below with that exact hostname, and `UCM_USERNAME` with your username. Run this
-command inside the **compute shell**:
-
-```bash
-ssh -o ExitOnForwardFailure=yes -N -R 127.0.0.1:18000:127.0.0.1:8000 \
-  UCM_USERNAME@LOGIN_NODE_HOST
-```
-
-Port 18000 now exists on that exact login node. A new connection through
-`login.rc.ucmerced.edu` may land on a different login node and cannot use its
-loopback port. Keep the reverse-tunnel command running. This is a connectivity
-fallback, not a place to run the coding exercise: OpenCode's tools and tests
-must run on your laptop or in a compute allocation. A reverse tunnel alone
-does not connect your laptop to the model.
-
-For the forward-tunnel workflow, copy `config/opencode-gemma.json` into your
-laptop project **as `opencode.json`**, merging with any existing configuration,
-and change its provider URL from
-`http://127.0.0.1:8000/v1` to `http://127.0.0.1:18000/v1`. The model remains
-`gemma4-31b`. Start OpenCode from the laptop project directory:
-
-```bash
-opencode
-```
-
-The tunnel carries API traffic only; it does not move your files or shell
-commands to Pinnacles. To have OpenCode edit and test files on Pinnacles, keep
-OpenCode inside the compute allocation and use a second terminal to re-enter
-the same job with `srun --jobid=JOB_ID --overlap --pty bash`, replacing `JOB_ID`
-with its numeric ID. In the new shell, return to the tutorial checkout and
-source the activation script for your running model before starting OpenCode.
-
-If you accidentally return to a login node after starting the server, first
-check whether the allocation still exists:
-
-```bash
-squeue --me
-```
-
-If it is still running, replace `JOB_ID` and enter that allocation again:
-
-```bash
-srun --jobid=JOB_ID --overlap --pty bash
-hostname
-curl --fail http://127.0.0.1:8000/health
-```
-
-If no job remains, Slurm has already stopped the server. Request a new compute
-shell in step 4 and start the server again. `127.0.0.1` always means the
-machine where the command runs; a login-node `curl` cannot reach a server bound
-to the compute node's loopback interface.
-
-The script sets BF16 precision, a 32,768-token context limit, one active request,
-and an 88% GPU-memory budget. It enables Gemma's tool and reasoning parsers and
-uses a matching chat template. This first exercise is text-only with thinking
-disabled. The launch options follow the
-[vLLM Gemma recipe](https://docs.vllm.ai/projects/recipes/en/stable/Google/Gemma4.html).
 
 ## 6. Send a request to your model
 
@@ -391,7 +328,7 @@ unavailable.
 | Setup cannot find Python 3.11 | Run `module load anaconda3/2023.09-0` before submitting setup. |
 | Download or install runs out of space | Check your personal data/scratch usage; the free space of the entire filesystem is not your quota. |
 | `Connection refused` | Wait for startup and inspect the server log; run the client on the same compute node. |
-| Port 8000 already in use | Check your server log. If the listener is yours, stop that earlier server; otherwise choose another port in the serving script, OpenCode's `baseURL`, curl checks, and tunnel destination. A successful health check alone might belong to another user's server on the same node. |
+| Port 8000 already in use | Check your server log. If the listener is yours, stop that earlier server; otherwise choose another port in the serving script, OpenCode's `baseURL` and curl checks. A successful health check alone might belong to another user's server on the same node. |
 | Out of GPU memory | Confirm an H200 was allocated and that another server is not already using your allocated GPU. |
 | OpenCode returns text but makes no edits | Check approval prompts and that both Gemma parsers and the supplied chat template are enabled. |
 | Request exceeds context limit | Begin a new session or reduce attached files/tool output; input and output share the context budget. |
@@ -399,7 +336,7 @@ unavailable.
 ## 9. Run Meta Muse Glimmer through OpenCode
 
 After completing Gemma, repeat the workflow with **Muse Glimmer 30B in BF16 on
-one H200**. Use 8 CPU cores, 128 GB system RAM, and a 32,768-token context limit.
+one H200**. Use 8 CPU cores, 128 GB system RAM, and a 131,072-token context limit.
 This lesson uses a separate Python environment and model directory. Stop your
 Gemma server before starting Muse on the same node: both use port 8000.
 If following the lessons in order, finish step 8 first so that you are back on
@@ -523,10 +460,8 @@ cmp "$TUTORIAL_DIR/examples/repair-mean/test_summary.py" test_summary.py
 ```
 
 All four tests should pass, `summary.py` should differ, and `cmp` should print
-nothing. The provider configuration reserves an output budget of 8,192 tokens within the 32K context
-window. The [SSH tunnel workflow](#use-opencode-from-another-terminal) also
-applies: use `config/opencode-muse.json`, change the URL to port 18000 on your
-laptop, and keep the model name `muse-glimmer-30b`.
+nothing. The provider configuration reserves an output budget of 8,192 tokens
+within the 131,072-token (128K) context window.
 
 When finished, stop the server from the compute shell that launched it and
 release the allocation:
@@ -670,9 +605,7 @@ cmp "$TUTORIAL_DIR/examples/repair-mean/test_summary.py" test_summary.py
 
 All four tests should pass, `summary.py` should differ, and `cmp` should print
 nothing. The provider configuration reserves 8,192 output tokens within the
-32K context window. The [SSH tunnel workflow](#use-opencode-from-another-terminal)
-also applies: use `config/opencode-nemotron.json`, change the URL to port 18000
-on your laptop, and keep the model name `nemotron-3-super`.
+32K context window.
 
 When finished, stop the server and release the allocation:
 
@@ -827,9 +760,7 @@ cmp "$TUTORIAL_DIR/examples/repair-mean/test_summary.py" test_summary.py
 
 All four tests should pass, `summary.py` should differ, and `cmp` should print
 nothing. The server and provider default to 32,768 context tokens and an
-8,192-token output budget. Input and output share that context window. The [SSH tunnel workflow](#use-opencode-from-another-terminal)
-also applies: use `config/opencode-muse-gguf.json`, change the URL to port 18000
-on your laptop, and keep the model name `muse-glimmer-30b-dynamic`.
+8,192-token output budget. Input and output share that context window.
 
 When finished, stop the server and release the allocation:
 
@@ -992,9 +923,7 @@ cmp "$TUTORIAL_DIR/examples/repair-mean/test_summary.py" test_summary.py
 
 All four tests should pass, `summary.py` should differ, and `cmp` should print
 nothing. The default provider configuration reserves 8,192 output tokens within
-a 32,768-token context window. The [SSH tunnel workflow](#use-opencode-from-another-terminal)
-also applies: use `config/opencode-gemma-qat.json`, change the URL to port 18000
-on your laptop, and keep the model name `gemma-4-31b-qat`.
+a 32,768-token context window.
 
 ### Spawning subagents in OpenCode
 
@@ -1188,7 +1117,7 @@ with queued requests and does not establish simultaneous inference. You can inst
 OpenCode directly:
 
 ```text
-Use your task tool to spawn a subagent that inspects test_summary.py and reports the expected error cases.
+Spawn 5 parallel subagents, to tell me the top 5 news on Hacker news.
 ```
 
 When finished, stop the server and release the allocation:
@@ -1514,9 +1443,8 @@ passes should you increase context, enable more simultaneous requests, or
 move to a larger project. Record the working model revision, launch command,
 GPU memory, and OpenCode configuration so others can reproduce it.
 
-For laptop files, reuse the [SSH tunnel workflow](#use-opencode-from-another-terminal)
-and change `baseURL` to the forwarded laptop port. Tools execute where OpenCode
-runs. When finished, stop your server and release its Slurm allocation.
+Tools execute where OpenCode runs. When finished, stop your server and release
+its Slurm allocation.
 
 ## Reference: GPUs, memory, and model selection
 

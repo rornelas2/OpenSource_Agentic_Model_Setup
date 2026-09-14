@@ -31,7 +31,7 @@ mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$VLLM_CACHE_ROOT"
 exec "$root/envs/muse-vllm/bin/vllm" serve "$model" \
   --served-model-name muse-glimmer-30b \
   --host 127.0.0.1 --port 8000 \
-  --dtype bfloat16 --max-model-len 32768 --max-num-seqs 1 \
+  --dtype bfloat16 --max-model-len "${MUSE_CONTEXT:-131072}" --max-num-seqs 1 \
   --gpu-memory-utilization "${MUSE_GPU_UTIL:-0.88}" \
   --enable-auto-tool-choice --tool-call-parser muse_glimmer --reasoning-parser muse_glimmer \
   --default-chat-template-kwargs '{"reasoning_strength":"high"}' \

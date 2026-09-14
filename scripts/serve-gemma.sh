@@ -23,7 +23,7 @@ mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$VLLM_CACHE_ROOT"
 exec "$root/envs/gemma-vllm/bin/vllm" serve "$model" \
   --served-model-name gemma4-31b \
   --host 127.0.0.1 --port 8000 \
-  --dtype bfloat16 --max-model-len 32768 --max-num-seqs 1 \
+  --dtype bfloat16 --max-model-len "${GEMMA_CONTEXT:-98304}" --max-num-seqs 1 \
   --gpu-memory-utilization "${GEMMA_GPU_UTIL:-0.88}" \
   --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 \
   --chat-template "$root/tools/tool_chat_template_gemma4.jinja" \

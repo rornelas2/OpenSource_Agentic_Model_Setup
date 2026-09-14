@@ -13,7 +13,7 @@
       "models": {
         "muse-glimmer-30b": {
           "name": "Muse Glimmer 30B (H200)",
-          "limit": {"context": 32768, "output": 8192}
+          "limit": {"context": 131072, "output": 8192}
         }
       }
     }
