@@ -13,7 +13,15 @@
       "models": {
         "gemma-4-31b-qat": {
           "name": "Gemma 4 31B IT QAT (128K Multi-GPU)",
-          "limit": {"context": 131072, "output": 8192}
+          "limit": {"context": 131072, "output": 8192},
+          "reasoning": true,
+          "options": {"chat_template_kwargs": {"enable_thinking": false}},
+          "variants": {
+            "low": {"disabled": true},
+            "medium": {"disabled": true},
+            "none": {"chat_template_kwargs": {"enable_thinking": false}},
+            "high": {"chat_template_kwargs": {"enable_thinking": true}}
+          }
         }
       }
     }

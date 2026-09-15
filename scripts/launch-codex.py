@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -17,6 +18,8 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from thinking import default_effort, levels, responses_adapter, template_kwargs
 
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
@@ -88,7 +91,15 @@ def model_catalog(model, context):
         "slug": model,
         "display_name": model + " (Pinnacles)",
         "description": "Local GPU model through the Pinnacles Responses endpoint",
-        "supported_reasoning_levels": [],
+        "default_reasoning_level": default_effort(model),
+        "supported_reasoning_levels": [
+            {"effort": effort, "description": (
+                "Thinking off" if effort == "none" else
+                "Low-effort thinking" if model == "nemotron-3-super" and effort == "low" else
+                "Thinking on" if model not in {"muse-glimmer-30b", "muse-glimmer-30b-dynamic"} else
+                f"Muse {effort} reasoning strength")}
+            for effort in levels(model)
+        ],
         "shell_type": "default",
         "visibility": "list",
         "supported_in_api": True,
@@ -132,10 +143,12 @@ def write_catalog(state, model, context):
     return path
 
 
-def codex_command(binary, model, context, url, extra, catalog=None):
+def codex_command(binary, model, context, url, extra, catalog=None, effort=None):
     settings = {
         "model": model,
         "model_provider": "pinnacles",
+        "model_reasoning_effort": effort or default_effort(model),
+        "model_supports_reasoning_summaries": True,
         "model_context_window": context,
         "model_auto_compact_token_limit": context * 3 // 4,
         "approval_policy": "on-request",
@@ -160,6 +173,7 @@ def codex_command(binary, model, context, url, extra, catalog=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List shared model profiles and exit")
+    parser.add_argument("--thinking", help="Initial effort: Muse low/medium/high/xhigh; Super none/low/high; others none/high. Put before PROFILE.")
     parser.add_argument("--check", action="store_true", help="Verify endpoint and Codex catalog without starting a chat")
     parser.add_argument("--base-url", help="Local endpoint override, e.g. http://127.0.0.1:8001/v1")
     parser.add_argument("profile", nargs="?", help="Profile suffix, e.g. muse-gguf-128k")
@@ -169,13 +183,15 @@ def main():
         for path in sorted(CONFIG_DIR.glob("opencode-*.json")):
             name = path.stem.removeprefix("opencode-")
             model, context, _ = load_profile(name)
-            print(f"{name:24} {model:30} {context:7} tokens")
+            print(f"{name:24} {model:30} {context:7} tokens; thinking {', '.join(levels(model))}")
         return
     if not args.profile:
         parser.error("Choose a profile or use --list.")
     if not os.environ.get("SLURM_JOB_ID") or os.uname().nodename.split(".")[0].startswith("rclogin"):
         raise ValueError("Run inside the model's Slurm compute shell, after sourcing its activation script.")
     model, context, url = load_profile(args.profile)
+    effort = args.thinking or default_effort(model)
+    template_kwargs(model, effort)  # Reject unsupported levels before connecting.
     url = validate_url(args.base_url or url)
     root = Path("/data") / os.environ["USER"] / "pinnacles-agents"
     binary = root / "tools/codex-v0.154.0/bin/codex"
@@ -195,7 +211,7 @@ def main():
     extra = args.codex_args
     if extra[:1] == ["--"]:
         extra = extra[1:]
-    print(f"Codex → {model} at {url}; context {context}; project {Path.cwd()}",
+    print(f"Codex → {model} at {url}; context {context}; thinking {effort}; project {Path.cwd()}",
           file=sys.stderr, flush=True)
     if args.check:
         result = subprocess.run(
@@ -204,11 +220,37 @@ def main():
         models = json.loads(result.stdout)["models"]
         if [item["slug"] for item in models] != [model]:
             raise ValueError("Codex did not load the expected single-model catalog.")
+        if [item["effort"] for item in models[0]["supported_reasoning_levels"]] != list(levels(model)):
+            raise ValueError("Codex did not load the expected thinking levels.")
         print(f"Verified: provider=pinnacles; model={model}; picker contains only this model.\n"
+              f"Thinking levels: {', '.join(levels(model))}\n"
               f"Codex state: {state}\nModel catalog: {catalog}\n"
               "Endpoint identity and catalog checked; no inference request sent.")
         return
-    os.execve(binary, codex_command(binary, model, context, url, extra, catalog), env)
+    # Keep the adapter alive only for this Codex process, including /model changes.
+    def stop_session(signum, frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, stop_session)
+    with responses_adapter(url, model) as adapted_url:
+        command = codex_command(binary, model, context, adapted_url, extra, catalog, effort)
+        child = subprocess.Popen(command, env=env)
+        try:
+            returncode = child.wait()
+        except KeyboardInterrupt:
+            # The foreground child receives terminal Ctrl-C too; allow cleanup.
+            child.terminate()
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait()
+            returncode = 130
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait()
+        sys.exit(returncode)
 
 
 if __name__ == "__main__":

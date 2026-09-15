@@ -13,7 +13,15 @@
       "models": {
         "muse-glimmer-30b-dynamic": {
           "name": "Muse Glimmer 30B Dynamic Q4 (128K Multi-GPU)",
-          "limit": {"context": 131072, "output": 8192}
+          "limit": {"context": 131072, "output": 8192},
+          "reasoning": true,
+          "options": {"chat_template_kwargs": {"reasoning_strength": "high"}},
+          "variants": {
+            "low": {"chat_template_kwargs": {"reasoning_strength": "low"}},
+            "medium": {"chat_template_kwargs": {"reasoning_strength": "medium"}},
+            "high": {"chat_template_kwargs": {"reasoning_strength": "high"}},
+            "xhigh": {"chat_template_kwargs": {"reasoning_strength": "xhigh"}}
+          }
         }
       }
     }

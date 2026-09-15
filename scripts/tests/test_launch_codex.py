@@ -5,7 +5,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import threading
 import tempfile
+import sys
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 spec = importlib.util.spec_from_file_location(
@@ -87,7 +90,7 @@ class LauncherTests(unittest.TestCase):
 
     def test_arguments_preserved_without_shell_interpretation(self):
         extra = ["exec", "literal $(no) `no` and spaces"]
-        command = launcher.codex_command("/a path/codex", "test", 32768, self.base + "/v1", extra)
+        command = launcher.codex_command("/a path/codex", "gemma4-31b", 32768, self.base + "/v1", extra)
         self.assertEqual(command[-2:], extra)
         self.assertEqual(command[0], "/a path/codex")
         self.assertIn('model_providers.pinnacles.wire_api="responses"', command)
@@ -99,21 +102,21 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(model["visibility"], "list")
         self.assertEqual(model["context_window"], 32768)
         self.assertFalse(model["use_responses_lite"])
-        self.assertEqual(model["supported_reasoning_levels"], [])
+        self.assertEqual([x["effort"] for x in model["supported_reasoning_levels"]], ["low", "medium", "high", "xhigh"])
         self.assertNotIn("gpt-", model["base_instructions"])
 
     def test_catalog_files_do_not_overwrite_other_session_limits(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
-            first = launcher.write_catalog(state, "local", 32768)
-            second = launcher.write_catalog(state, "local", 131072)
+            first = launcher.write_catalog(state, "gemma4-31b", 32768)
+            second = launcher.write_catalog(state, "gemma4-31b", 131072)
             self.assertNotEqual(first, second)
             self.assertEqual(json.loads(first.read_text())["models"][0]["context_window"], 32768)
-            self.assertEqual(launcher.write_catalog(state, "local", 32768), first)
+            self.assertEqual(launcher.write_catalog(state, "gemma4-31b", 32768), first)
             self.assertEqual(len(list(state.iterdir())), 2)
 
     def test_catalog_override_passed_to_codex(self):
-        command = launcher.codex_command("codex", "local", 32768, self.base + "/v1",
+        command = launcher.codex_command("codex", "gemma4-31b", 32768, self.base + "/v1",
                                          ["debug", "models"], Path("/a path/models.json"))
         self.assertIn('model_catalog_json="/a path/models.json"', command)
         self.assertEqual(command[-2:], ["debug", "models"])

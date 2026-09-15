@@ -13,7 +13,15 @@
       "models": {
         "nemotron-3-super": {
           "name": "NVIDIA Nemotron 3 Super (H200)",
-          "limit": {"context": 32768, "output": 8192}
+          "limit": {"context": 32768, "output": 8192},
+          "reasoning": true,
+          "options": {"chat_template_kwargs": {"enable_thinking": true, "low_effort": false}},
+          "variants": {
+            "medium": {"disabled": true},
+            "none": {"chat_template_kwargs": {"enable_thinking": false, "low_effort": false}},
+            "low": {"chat_template_kwargs": {"enable_thinking": true, "low_effort": true}},
+            "high": {"chat_template_kwargs": {"enable_thinking": true, "low_effort": false}}
+          }
         }
       }
     }

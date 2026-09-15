@@ -335,6 +335,122 @@ needed. Its session state is separate from your normal Codex configuration.
 The [OpenCode documentation](https://opencode.ai/docs/providers/) explains custom
 providers; [permissions](https://opencode.ai/docs/permissions/) control tool use.
 
+### Changing thinking levels in either harness
+
+All ten supplied profiles expose their model's native controls:
+
+| Model family (all hardware/context profiles) | Selectable levels | Initial default |
+|---|---|---|
+| Muse Glimmer BF16 and GGUF | `low`, `medium`, `high`, `xhigh` | `high` |
+| Gemma 4 BF16 and QAT | `none` (off), `high` (on) | `none` |
+| Nemotron 3 Super | `none` (off), `low`, `high` (full thinking) | `high` |
+| Nemotron 3.5 Lightning | `none` (off), `high` (on) | `high` |
+
+For the binary switches, `high` means **thinking enabled**, not a separately
+trained high-effort tier. Muse has four strengths and no advertised off mode.
+Thinking tokens and the final answer share the output allowance; selecting a
+higher effort does not increase the configured output or context limit.
+
+**OpenCode:** merge the updated matching `config/opencode-*.json` into your
+project's `opencode.json`, including the model's `options`, `reasoning`, and
+`variants` fields. Restart OpenCode, select the local model, and press **Ctrl+T**
+to cycle variants. The displayed variant applies to subsequent requests.
+Unsupported automatically generated variants are explicitly disabled in the
+supplied configuration. Keep those `disabled` entries when merging.
+An unselected/default variant uses the model's `options` above; it does not
+mean thinking is disabled. For a noninteractive run, select it explicitly:
+
+```bash
+opencode run --variant low "Explain this project's entry point."
+```
+
+That example is for Muse; use `--variant none` or `--variant high` for Gemma
+and Nemotron (Super also accepts `--variant low`). To change the initial default
+in `opencode.json`, edit
+`provider.pinnacles.models.MODEL_ID.options.chat_template_kwargs`:
+Muse uses `{"reasoning_strength":"medium"}`, for example; Gemma/Nemotron
+use `{"enable_thinking":true}` or `{"enable_thinking":false}`. Super additionally
+uses `"low_effort":true` for low and `false` for full thinking/off. Variants override
+this default. Existing project copies are not updated by `git pull`.
+See [OpenCode variants](https://opencode.ai/docs/models/#variants).
+
+**Codex:** start through the tutorial launcher, run **`/model`**, choose the
+listed local model, and select its reasoning effort. The descriptions identify
+on/off models. To set the initial effort from the command line, put
+`--thinking` **before the profile**:
+
+```bash
+python3 "$TUTORIAL_DIR/scripts/launch-codex.py" --thinking low muse-gguf-128k
+python3 "$TUTORIAL_DIR/scripts/launch-codex.py" --thinking high gemma
+```
+
+Choose the profile matching your running server. `--list` shows each profile's
+supported levels. Unsupported `--thinking` values fail before connecting.
+Restart an older launcher session once to load the updated catalog and adapter;
+subsequent `/model` effort changes need no server restart. Launches start with
+the default in the table unless `--thinking` is supplied. Codex's usual
+`model_reasoning_effort` setting is described in the
+[official configuration reference](https://developers.openai.com/codex/config-reference/).
+
+The Codex launcher runs a small loopback adapter for its own session. It converts
+`reasoning.effort` into the model's `chat_template_kwargs`, then streams the
+Responses API reply unchanged. This is necessary because the pinned servers do
+not consistently map standard effort fields to model-native settings. It uses
+an automatically selected local port, closes when Codex exits, and keeps the
+original GPU endpoint available to OpenCode. No extra package is needed.
+
+Model controls come from the [Muse model card](https://huggingface.co/meta-models/Muse-Glimmer-30B#best-practices),
+the supplied Gemma templates, and the pinned NVIDIA
+[Super template](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/blob/ff433f5493e25d631c9f12b5d55c674229923d02/chat_template.jinja) and
+[Lightning template](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/blob/bee7596271d1495f6992ae224aefde4410e816b8/chat_template.jinja). These settings control
+inference behavior, not whether the harness displays reasoning text.
+
+**Validation (2026-09-14):** on Pinnacles, the pinned Codex 0.154.0 and
+OpenCode 1.18.30 clients sent the expected native settings for every configured
+level in request-capture checks. On one A100 40GB, Muse GGUF at 32K completed
+real Responses requests and OpenCode runs at all four strengths; the public
+Codex launcher also completed a streamed file-read tool round trip at `low`.
+Gemma and NVIDIA thinking changes have configuration/request validation;
+their GPU inference and Codex tool round trips were not rerun for this feature.
+These short checks do not establish speed or quality improvements.
+
+### Asking for fewer permissions in OpenCode
+
+The supplied profiles ask for edits and shell commands. For my recommended
+workflow—allow routine actions and ask for `sudo`, `rm -r`, and `rm -rf`—replace
+only the top-level `permission` object in your project's **`opencode.json`**:
+
+```json
+"permission": {
+  "*": "allow",
+  "bash": {
+    "*": "allow",
+    "*sudo*": "ask",
+    "*rm *-r*": "ask",
+    "*rm *-R*": "ask",
+    "*rm *-fr*": "ask",
+    "*rm *--recursive*": "ask"
+  }
+}
+```
+
+This is a JSON member to merge into the existing file, keeping the provider
+and model configuration. Restart OpenCode after editing. `allow` runs without
+a prompt, `ask` requests approval, and `deny` blocks the matching action. Change
+the listed `ask` values to `deny` if those commands should never be approved.
+To ask before every shell command, set `"bash": "ask"`; to ask before file
+changes, add `"edit": "ask"` next to `bash`. To return to the tutorial defaults,
+restore its original `permission` object.
+
+OpenCode uses wildcard matches with the **last matching rule winning**, so put
+`"*"` first. The broad patterns above also cover common absolute paths, `-rf`,
+`-fr`, `-R`, and `--recursive`, and can ask for harmless commands containing
+similar text. They are command approval rules, not a security sandbox: aliases,
+scripts, Python, or other allowed tools can perform equivalent operations.
+Global, project, and agent-specific configuration can affect the effective
+policy; check those overrides if prompts differ from what you expect. Consult
+[OpenCode permissions](https://opencode.ai/docs/permissions/) for the rule syntax.
+
 ### Using your project's own environment
 
 **Yes, the agent can use a project's own environment and install project
@@ -1571,7 +1687,7 @@ separates available configuration from completed Codex runtime validation:
 | Profile | Configured context | Codex validation |
 |---|---:|---|
 | `muse-gguf-128k` | 131,072 | Short coding repair validated with llama.cpp |
-| `muse-gguf` | 32,768 | Same model/API; separate 32K server deployment not retested with Codex |
+| `muse-gguf` | 32,768 | Streamed file-read tool round trip at low effort; all four adapter strengths completed inference |
 | `gemma` | 98,304 | Configuration available; vLLM/Codex tool round trip not yet validated |
 | `muse` | 131,072 | Configuration available; vLLM/Codex tool round trip not yet validated |
 | `gemma-qat` | 32,768 | Configuration available; vLLM/Codex tool round trip not yet validated |
@@ -1634,9 +1750,10 @@ advertises a smaller one. It does not start a server or reserve GPUs.
 The current directory is the working project; it may be outside the tutorial.
 
 The launcher also supplies a local model catalog: `/model` lists only the
-selected profile's model, marked as current. You do not need to select it again.
+selected profile's model, marked as current. Select it to choose its reasoning
+effort; see [thinking levels](#changing-thinking-levels-in-either-harness).
 Use `/status` to inspect the active model. A `default` label is not a switch to
-an OpenAI model; reasoning for Muse is configured by the serving script.
+an OpenAI model.
 
 To check the endpoint and the catalog loaded by Codex without sending a prompt:
 
